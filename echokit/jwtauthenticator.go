@@ -17,13 +17,8 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-type JWTAuthenticatorConfig struct {
-	Audience string
-	Domain   string
-}
-
 type JWTAuthenticator struct {
-	config       JWTAuthenticatorConfig
+	config       Auth0Config
 	jwtValidator *validator.Validator
 }
 
@@ -40,7 +35,7 @@ func (c CustomClaims) Validate(ctx context.Context) error {
 
 type JWTAuthenticatorOption func(*JWTAuthenticator)
 
-func NewJWTAuthenticator(config JWTAuthenticatorConfig) (*JWTAuthenticator, error) {
+func NewJWTAuthenticator(config Auth0Config) (*JWTAuthenticator, error) {
 	jwtAuthenticator := &JWTAuthenticator{
 		config: config,
 	}
