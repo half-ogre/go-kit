@@ -20,33 +20,34 @@ func ParseSemanticVersion(v string) (*SemanticVersion, error) {
 		return nil, errors.New("value is empty")
 	}
 
-	parts := strings.Split(v, ".")
+	// First, extract build metadata (everything after '+')
+	buildMetadataRaw := ""
+	versionWithoutBuild := v
+	if plusIndex := strings.Index(v, "+"); plusIndex != -1 {
+		if strings.Count(v, "+") > 1 {
+			return nil, fmt.Errorf("value %s has more than one + sign", v)
+		}
+		buildMetadataRaw = v[plusIndex+1:]
+		versionWithoutBuild = v[:plusIndex]
+	}
+
+	// Next, extract pre-release (everything after '-' in the remaining string)
+	preReleaseVersionRaw := ""
+	versionCore := versionWithoutBuild
+	if dashIndex := strings.Index(versionWithoutBuild, "-"); dashIndex != -1 {
+		preReleaseVersionRaw = versionWithoutBuild[dashIndex+1:]
+		versionCore = versionWithoutBuild[:dashIndex]
+	}
+
+	// Now split the core version (major.minor.patch) on dots
+	parts := strings.Split(versionCore, ".")
 	if len(parts) != 3 {
 		return nil, fmt.Errorf("value %s did not contain major, minor, and patch versions", v)
 	}
 
 	majorVersionRaw := parts[0]
 	minorVersionRaw := parts[1]
-	patchVersionRaw := ""
-	preReleaseVersionRaw := ""
-	buildMetadataRaw := ""
-
-	if strings.Contains(parts[2], "+") {
-		moreParts := strings.Split(parts[2], "+")
-		if len(moreParts) > 2 {
-			return nil, fmt.Errorf("value %s has more than one + sign", v)
-		}
-		buildMetadataRaw = moreParts[1]
-		parts[2] = moreParts[0]
-	}
-
-	if strings.Contains(parts[2], "-") {
-		moreParts := strings.SplitN(parts[2], "-", 2)
-		preReleaseVersionRaw = moreParts[1]
-		parts[2] = moreParts[0]
-	}
-
-	patchVersionRaw = parts[2]
+	patchVersionRaw := parts[2]
 
 	sv := &SemanticVersion{}
 
