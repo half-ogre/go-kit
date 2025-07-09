@@ -13,8 +13,11 @@ import (
 )
 
 func QueryItem[TItem any, TPartitionKey string | int](ctx context.Context, tableName string, partitionKey string, partitionKeyValue TPartitionKey) (*TItem, error) {
-	db := newDynamoDB()
+	client := NewClient()
+	return QueryItemWithClient[TItem, TPartitionKey](ctx, client, tableName, partitionKey, partitionKeyValue)
+}
 
+func QueryItemWithClient[TItem any, TPartitionKey string | int](ctx context.Context, client *Client, tableName string, partitionKey string, partitionKeyValue TPartitionKey) (*TItem, error) {
 	keyConditionExpr := expression.Key(partitionKey).Equal(expression.Value(partitionKeyValue))
 	expr, err := expression.NewBuilder().
 		WithKeyCondition(keyConditionExpr).
@@ -31,7 +34,7 @@ func QueryItem[TItem any, TPartitionKey string | int](ctx context.Context, table
 		ExpressionAttributeValues: expr.Values(),
 	}
 
-	output, err := db.QueryWithContext(ctx, queryInput)
+	output, err := client.db.QueryWithContext(ctx, queryInput)
 	if err != nil {
 		return nil, kit.WrapError(err, "error querying table %v", queryInput.TableName)
 	}
@@ -59,8 +62,11 @@ func QueryItem[TItem any, TPartitionKey string | int](ctx context.Context, table
 }
 
 func QueryIndexItem[TItem any, TPartitionKey string | int](ctx context.Context, tableName string, indexName string, partitionKey string, partitionKeyValue TPartitionKey) (*TItem, error) {
-	db := newDynamoDB()
+	client := NewClient()
+	return QueryIndexItemWithClient[TItem, TPartitionKey](ctx, client, tableName, indexName, partitionKey, partitionKeyValue)
+}
 
+func QueryIndexItemWithClient[TItem any, TPartitionKey string | int](ctx context.Context, client *Client, tableName string, indexName string, partitionKey string, partitionKeyValue TPartitionKey) (*TItem, error) {
 	keyConditionExpr := expression.Key(partitionKey).Equal(expression.Value(partitionKeyValue))
 	expr, err := expression.NewBuilder().
 		WithKeyCondition(keyConditionExpr).
@@ -78,7 +84,7 @@ func QueryIndexItem[TItem any, TPartitionKey string | int](ctx context.Context, 
 		ExpressionAttributeValues: expr.Values(),
 	}
 
-	output, err := db.QueryWithContext(ctx, queryInput)
+	output, err := client.db.QueryWithContext(ctx, queryInput)
 	if err != nil {
 		return nil, kit.WrapError(err, "error querying table %v", queryInput.TableName)
 	}
@@ -106,6 +112,11 @@ func QueryIndexItem[TItem any, TPartitionKey string | int](ctx context.Context, 
 }
 
 func PutItem[T any](ctx context.Context, tableName string, item T) error {
+	client := NewClient()
+	return PutItemWithClient[T](ctx, client, tableName, item)
+}
+
+func PutItemWithClient[T any](ctx context.Context, client *Client, tableName string, item T) error {
 	i, err := dynamodbattribute.MarshalMap(item)
 	if err != nil {
 		return err
@@ -116,9 +127,7 @@ func PutItem[T any](ctx context.Context, tableName string, item T) error {
 		TableName: aws.String(tableName),
 	}
 
-	db := newDynamoDB()
-
-	_, err = db.PutItemWithContext(ctx, putInput)
+	_, err = client.db.PutItemWithContext(ctx, putInput)
 	if err != nil {
 		return err
 	}
@@ -127,13 +136,16 @@ func PutItem[T any](ctx context.Context, tableName string, item T) error {
 }
 
 func ScanAllItems[TItem any](ctx context.Context, tableName string) ([]TItem, error) {
-	db := newDynamoDB()
+	client := NewClient()
+	return ScanAllItemsWithClient[TItem](ctx, client, tableName)
+}
 
+func ScanAllItemsWithClient[TItem any](ctx context.Context, client *Client, tableName string) ([]TItem, error) {
 	scanInput := &dynamodb.ScanInput{
 		TableName: aws.String(tableName),
 	}
 
-	output, err := db.ScanWithContext(ctx, scanInput)
+	output, err := client.db.ScanWithContext(ctx, scanInput)
 	if err != nil {
 		return nil, kit.WrapError(err, "error scanning table %s", *scanInput.TableName)
 	}
