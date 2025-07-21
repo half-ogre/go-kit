@@ -1,4 +1,11 @@
-.PHONY: build test clean fmt vet
+.PHONY: build test clean fmt vet help
+
+help:
+	@echo "build  - Build all packages"
+	@echo "test   - Run tests"
+	@echo "fmt    - Format code"
+	@echo "vet    - Run go vet"
+	@echo "clean  - Clean build artifacts"
 
 build:
 	go build ./...
