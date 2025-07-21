@@ -42,7 +42,7 @@ jobs:
         
     - name: Tag and create semver release
       id: tag-and-create-release
-      uses: half-ogre-games/hog-actions/tag-and-create-semver-release@v0.2.0
+      uses: half-ogre-games/hog-actions/tag-and-create-semver-release@v0.2.1
       with:
         branch: ${{ github.event.inputs.branch }}
         commit: ${{ github.event.inputs.commit }}
