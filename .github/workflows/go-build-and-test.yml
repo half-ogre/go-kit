@@ -1,0 +1,55 @@
+name: Go build and test
+
+run-name: Build and test Go packages
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
+          
+    - name: Download dependencies
+      run: go mod download
+      
+    - name: Check formatting
+      run: |
+        if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
+          echo "The following files are not formatted:"
+          gofmt -s -l .
+          exit 1
+        fi
+      
+    - name: Run go vet
+      run: go vet ./...
+        
+    - name: Build all packages
+      run: go build ./...
+      
+    - name: Run tests
+      run: go test -v ./...
+      
+    - name: Run tests with race detector
+      run: go test -v -race ./...
+      
+    - name: Verify no uncommitted changes
+      run: |
+        if [[ -n $(git status --porcelain) ]]; then
+          echo "Error: There are uncommitted changes after build/test:"
+          git status --porcelain
+          git diff
+          exit 1
+        fi
