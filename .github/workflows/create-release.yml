@@ -1,0 +1,73 @@
+name: Create a release
+run-name: Tag and create a SemVer release for ${{ github.event.inputs.branch || github.event.repository.default_branch }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to tag'
+        required: false
+        default: ''
+        type: string
+      commit:
+        description: 'Commit SHA to tag (defaults to HEAD of branch)'
+        required: false
+        default: 'HEAD'
+        type: string
+      increment_major:
+        description: 'Increment major version'
+        required: false
+        default: false
+        type: boolean
+      increment_minor:
+        description: 'Increment minor version'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  release:
+    name: Create Version Tag and Release
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.inputs.branch || github.event.repository.default_branch }}
+        fetch-depth: 0
+        
+    - name: Tag and create semver release
+      id: tag-and-create-release
+      uses: half-ogre-games/hog-actions/tag-and-create-semver-release@v0.2.0
+      with:
+        branch: ${{ github.event.inputs.branch }}
+        commit: ${{ github.event.inputs.commit }}
+        increment-major: ${{ github.event.inputs.increment_major }}
+        increment-minor: ${{ github.event.inputs.increment_minor }}
+        prefix: 'v'
+        default-version: 'v0.1.0'
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Generate job summary
+      run: |
+        cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+        ## 🎉 Release Created Successfully!
+        
+        | Detail | Value |
+        |--------|-------|
+        | **Previous Version** | `${{ steps.tag-and-create-release.outputs.previous-version }}` |
+        | **New Version** | `${{ steps.tag-and-create-release.outputs.new-version }}` |
+        | **Increment Type** | `${{ steps.tag-and-create-release.outputs.increment-type }}` |
+        | **Target Commit** | `${{ steps.tag-and-create-release.outputs.target-commit }}` |
+        | **Release URL** | [${{ steps.tag-and-create-release.outputs.new-version }}](${{ steps.tag-and-create-release.outputs.release-url }}) |
+        
+        ### 📋 Summary
+        
+        Successfully created a **${{ steps.tag-and-create-release.outputs.increment-type }} release** from `${{ steps.tag-and-create-release.outputs.previous-version }}` to `${{ steps.tag-and-create-release.outputs.new-version }}`.
+        
+        The release is now available at: ${{ steps.tag-and-create-release.outputs.release-url }}
+        EOF
