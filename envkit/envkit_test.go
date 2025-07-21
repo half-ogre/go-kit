@@ -69,7 +69,7 @@ func TestGetenvBoolWithDefault(t *testing.T) {
 			// Clean up environment variable before and after test
 			key := "TEST_BOOL_ENV_VAR"
 			defer os.Unsetenv(key)
-			
+
 			if tt.envValue != "" {
 				os.Setenv(key, tt.envValue)
 			} else {
@@ -151,7 +151,7 @@ func TestGetenvIntWithDefault(t *testing.T) {
 			// Clean up environment variable before and after test
 			key := "TEST_INT_ENV_VAR"
 			defer os.Unsetenv(key)
-			
+
 			if tt.envValue != "" {
 				os.Setenv(key, tt.envValue)
 			} else {
@@ -220,7 +220,7 @@ func TestGetenvWithDefault(t *testing.T) {
 			// Clean up environment variable before and after test
 			key := "TEST_STRING_ENV_VAR"
 			defer os.Unsetenv(key)
-			
+
 			if tt.envValue != "" {
 				os.Setenv(key, tt.envValue)
 			} else {
@@ -240,7 +240,7 @@ func TestMustGetenv(t *testing.T) {
 	t.Run("environment variable set returns value", func(t *testing.T) {
 		key := "TEST_MUST_ENV_VAR"
 		expectedValue := "theRequiredValue"
-		
+
 		defer os.Unsetenv(key)
 		os.Setenv(key, expectedValue)
 
@@ -253,7 +253,7 @@ func TestMustGetenv(t *testing.T) {
 
 	t.Run("environment variable not set panics", func(t *testing.T) {
 		key := "TEST_MUST_ENV_VAR_NOT_SET"
-		
+
 		defer os.Unsetenv(key)
 		os.Unsetenv(key) // Ensure it's not set
 
@@ -273,7 +273,7 @@ func TestMustGetenv(t *testing.T) {
 
 	t.Run("environment variable set to empty string panics", func(t *testing.T) {
 		key := "TEST_MUST_ENV_VAR_EMPTY"
-		
+
 		defer os.Unsetenv(key)
 		os.Setenv(key, "")
 

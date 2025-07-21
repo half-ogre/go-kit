@@ -19,7 +19,7 @@ type FakeDynamoDB struct {
 	putError      error
 	scanResponse  *dynamodb.ScanOutput
 	scanError     error
-	
+
 	// Track calls for verification
 	queryCalls []QueryCall
 	putCalls   []PutCall
@@ -73,7 +73,7 @@ func TestNewClient(t *testing.T) {
 func TestNewClientWithDB(t *testing.T) {
 	fakeDB := &FakeDynamoDB{}
 	client := NewClient(WithDB(fakeDB))
-	
+
 	if client == nil {
 		t.Error("NewClient(WithDB()) returned nil")
 	}
@@ -84,12 +84,12 @@ func TestNewClientWithDB(t *testing.T) {
 
 func TestWithDB(t *testing.T) {
 	fakeDB := &FakeDynamoDB{}
-	
+
 	// Test WithDB option function
 	option := WithDB(fakeDB)
 	client := &Client{}
 	option(client)
-	
+
 	if client.db != fakeDB {
 		t.Error("WithDB() option did not set the correct db")
 	}
@@ -97,10 +97,10 @@ func TestWithDB(t *testing.T) {
 
 func TestNewClientMultipleOptions(t *testing.T) {
 	fakeDB := &FakeDynamoDB{}
-	
+
 	// Test that options are applied in order
 	client := NewClient(WithDB(fakeDB))
-	
+
 	if client.db != fakeDB {
 		t.Error("NewClient() with multiple options did not apply WithDB correctly")
 	}
@@ -108,23 +108,23 @@ func TestNewClientMultipleOptions(t *testing.T) {
 
 func TestClient_QueryItem_Success(t *testing.T) {
 	user := TestUser{ID: "123", Name: "John Doe", Email: "john@example.com"}
-	
+
 	// Marshal the test data
 	item, err := dynamodbattribute.MarshalMap(user)
 	if err != nil {
 		t.Fatal(err)
 	}
-	
+
 	fakeDB := &FakeDynamoDB{
 		queryResponse: &dynamodb.QueryOutput{
 			Items: []map[string]*dynamodb.AttributeValue{item},
 		},
 	}
-	
+
 	client := NewClient(WithDB(fakeDB))
-	
+
 	result, err := QueryItemWithClient[TestUser, string](context.Background(), client, "users", "id", "123")
-	
+
 	if err != nil {
 		t.Errorf("QueryItem() unexpected error: %v", err)
 	}
@@ -138,7 +138,7 @@ func TestClient_QueryItem_Success(t *testing.T) {
 	if result.Name != user.Name {
 		t.Errorf("QueryItem() Name = %q, want %q", result.Name, user.Name)
 	}
-	
+
 	// Verify the query was called correctly
 	if len(fakeDB.queryCalls) != 1 {
 		t.Errorf("Expected 1 query call, got %d", len(fakeDB.queryCalls))
@@ -154,11 +154,11 @@ func TestClient_QueryItem_NoResults(t *testing.T) {
 			Items: []map[string]*dynamodb.AttributeValue{},
 		},
 	}
-	
+
 	client := NewClient(WithDB(fakeDB))
-	
+
 	result, err := QueryItemWithClient[TestUser, string](context.Background(), client, "users", "id", "999")
-	
+
 	if err != nil {
 		t.Errorf("QueryItem() unexpected error: %v", err)
 	}
@@ -170,20 +170,20 @@ func TestClient_QueryItem_NoResults(t *testing.T) {
 func TestClient_QueryItem_MultipleResults(t *testing.T) {
 	user1 := TestUser{ID: "123", Name: "John Doe", Email: "john@example.com"}
 	user2 := TestUser{ID: "124", Name: "Jane Doe", Email: "jane@example.com"}
-	
+
 	item1, _ := dynamodbattribute.MarshalMap(user1)
 	item2, _ := dynamodbattribute.MarshalMap(user2)
-	
+
 	fakeDB := &FakeDynamoDB{
 		queryResponse: &dynamodb.QueryOutput{
 			Items: []map[string]*dynamodb.AttributeValue{item1, item2},
 		},
 	}
-	
+
 	client := NewClient(WithDB(fakeDB))
-	
+
 	result, err := QueryItemWithClient[TestUser, string](context.Background(), client, "users", "id", "123")
-	
+
 	if err == nil {
 		t.Error("QueryItem() expected error for multiple results")
 	}
@@ -200,11 +200,11 @@ func TestClient_QueryItem_QueryError(t *testing.T) {
 	fakeDB := &FakeDynamoDB{
 		queryError: errors.New("DynamoDB query error"),
 	}
-	
+
 	client := NewClient(WithDB(fakeDB))
-	
+
 	result, err := QueryItemWithClient[TestUser, string](context.Background(), client, "users", "id", "123")
-	
+
 	if err == nil {
 		t.Error("QueryItem() expected error")
 	}
@@ -215,22 +215,22 @@ func TestClient_QueryItem_QueryError(t *testing.T) {
 
 func TestClient_QueryIndexItem_Success(t *testing.T) {
 	user := TestUser{ID: "123", Name: "John Doe", Email: "john@example.com"}
-	
+
 	item, err := dynamodbattribute.MarshalMap(user)
 	if err != nil {
 		t.Fatal(err)
 	}
-	
+
 	fakeDB := &FakeDynamoDB{
 		queryResponse: &dynamodb.QueryOutput{
 			Items: []map[string]*dynamodb.AttributeValue{item},
 		},
 	}
-	
+
 	client := NewClient(WithDB(fakeDB))
-	
+
 	result, err := QueryIndexItemWithClient[TestUser, string](context.Background(), client, "users", "email-index", "email", "john@example.com")
-	
+
 	if err != nil {
 		t.Errorf("QueryIndexItem() unexpected error: %v", err)
 	}
@@ -241,7 +241,7 @@ func TestClient_QueryIndexItem_Success(t *testing.T) {
 	if result.Email != user.Email {
 		t.Errorf("QueryIndexItem() Email = %q, want %q", result.Email, user.Email)
 	}
-	
+
 	// Verify the query was called with index name
 	if len(fakeDB.queryCalls) != 1 {
 		t.Errorf("Expected 1 query call, got %d", len(fakeDB.queryCalls))
@@ -255,17 +255,17 @@ func TestClient_PutItem_Success(t *testing.T) {
 	fakeDB := &FakeDynamoDB{
 		putResponse: &dynamodb.PutItemOutput{},
 	}
-	
+
 	client := NewClient(WithDB(fakeDB))
-	
+
 	user := TestUser{ID: "123", Name: "John Doe", Email: "john@example.com"}
-	
+
 	err := PutItemWithClient(context.Background(), client, "users", user)
-	
+
 	if err != nil {
 		t.Errorf("PutItem() unexpected error: %v", err)
 	}
-	
+
 	// Verify the put was called correctly
 	if len(fakeDB.putCalls) != 1 {
 		t.Errorf("Expected 1 put call, got %d", len(fakeDB.putCalls))
@@ -273,7 +273,7 @@ func TestClient_PutItem_Success(t *testing.T) {
 	if *fakeDB.putCalls[0].Input.TableName != "users" {
 		t.Errorf("PutItem() TableName = %q, want %q", *fakeDB.putCalls[0].Input.TableName, "users")
 	}
-	
+
 	// Verify the item was marshaled correctly
 	var unmarshaledUser TestUser
 	err = dynamodbattribute.UnmarshalMap(fakeDB.putCalls[0].Input.Item, &unmarshaledUser)
@@ -289,13 +289,13 @@ func TestClient_PutItem_Error(t *testing.T) {
 	fakeDB := &FakeDynamoDB{
 		putError: errors.New("DynamoDB put error"),
 	}
-	
+
 	client := NewClient(WithDB(fakeDB))
-	
+
 	user := TestUser{ID: "123", Name: "John Doe", Email: "john@example.com"}
-	
+
 	err := PutItemWithClient(context.Background(), client, "users", user)
-	
+
 	if err == nil {
 		t.Error("PutItem() expected error")
 	}
@@ -304,20 +304,20 @@ func TestClient_PutItem_Error(t *testing.T) {
 func TestClient_ScanAllItems_Success(t *testing.T) {
 	user1 := TestUser{ID: "123", Name: "John Doe", Email: "john@example.com"}
 	user2 := TestUser{ID: "124", Name: "Jane Doe", Email: "jane@example.com"}
-	
+
 	item1, _ := dynamodbattribute.MarshalMap(user1)
 	item2, _ := dynamodbattribute.MarshalMap(user2)
-	
+
 	fakeDB := &FakeDynamoDB{
 		scanResponse: &dynamodb.ScanOutput{
 			Items: []map[string]*dynamodb.AttributeValue{item1, item2},
 		},
 	}
-	
+
 	client := NewClient(WithDB(fakeDB))
-	
+
 	results, err := ScanAllItemsWithClient[TestUser](context.Background(), client, "users")
-	
+
 	if err != nil {
 		t.Errorf("ScanAllItems() unexpected error: %v", err)
 	}
@@ -330,7 +330,7 @@ func TestClient_ScanAllItems_Success(t *testing.T) {
 	if results[1].ID != user2.ID {
 		t.Errorf("ScanAllItems() second item ID = %q, want %q", results[1].ID, user2.ID)
 	}
-	
+
 	// Verify the scan was called correctly
 	if len(fakeDB.scanCalls) != 1 {
 		t.Errorf("Expected 1 scan call, got %d", len(fakeDB.scanCalls))
@@ -346,11 +346,11 @@ func TestClient_ScanAllItems_EmptyResults(t *testing.T) {
 			Items: []map[string]*dynamodb.AttributeValue{},
 		},
 	}
-	
+
 	client := NewClient(WithDB(fakeDB))
-	
+
 	results, err := ScanAllItemsWithClient[TestUser](context.Background(), client, "users")
-	
+
 	if err != nil {
 		t.Errorf("ScanAllItems() unexpected error: %v", err)
 	}
@@ -363,11 +363,11 @@ func TestClient_ScanAllItems_Error(t *testing.T) {
 	fakeDB := &FakeDynamoDB{
 		scanError: errors.New("DynamoDB scan error"),
 	}
-	
+
 	client := NewClient(WithDB(fakeDB))
-	
+
 	results, err := ScanAllItemsWithClient[TestUser](context.Background(), client, "users")
-	
+
 	if err == nil {
 		t.Error("ScanAllItems() expected error")
 	}
@@ -382,7 +382,7 @@ func TestUsageExamples(t *testing.T) {
 	if defaultClient == nil {
 		t.Error("Default client should not be nil")
 	}
-	
+
 	// Example 2: Client with custom DB for testing
 	fakeDB := &FakeDynamoDB{
 		queryResponse: &dynamodb.QueryOutput{Items: []map[string]*dynamodb.AttributeValue{}},
@@ -391,7 +391,7 @@ func TestUsageExamples(t *testing.T) {
 	if testClient == nil {
 		t.Error("Test client should not be nil")
 	}
-	
+
 	// Example 3: Using the test client
 	_, err := QueryItemWithClient[TestUser, string](context.Background(), testClient, "users", "id", "123")
 	if err != nil {
@@ -404,12 +404,12 @@ func TestQueryItem_PackageFunction(t *testing.T) {
 	// This test verifies that the package-level function creates a client and calls the method
 	// Since we can't easily mock the package-level function without changing the AWS session,
 	// we'll just verify it doesn't panic and has the right signature
-	
+
 	// We can't test the actual functionality without real AWS credentials,
 	// but we can at least verify the function exists and compiles
 	ctx := context.Background()
 	_, err := QueryItem[TestUser, string](ctx, "test-table", "id", "123")
-	
+
 	// We expect this to fail since there are no AWS credentials in the test environment
 	// but it should not panic
 	if err == nil {
@@ -420,7 +420,7 @@ func TestQueryItem_PackageFunction(t *testing.T) {
 func TestQueryIndexItem_PackageFunction(t *testing.T) {
 	ctx := context.Background()
 	_, err := QueryIndexItem[TestUser, string](ctx, "test-table", "test-index", "email", "test@example.com")
-	
+
 	// We expect this to fail since there are no AWS credentials in the test environment
 	if err == nil {
 		t.Log("QueryIndexItem package function executed without error (unexpected in test environment)")
@@ -431,7 +431,7 @@ func TestPutItem_PackageFunction(t *testing.T) {
 	ctx := context.Background()
 	user := TestUser{ID: "123", Name: "Test User", Email: "test@example.com"}
 	err := PutItem(ctx, "test-table", user)
-	
+
 	// We expect this to fail since there are no AWS credentials in the test environment
 	if err == nil {
 		t.Log("PutItem package function executed without error (unexpected in test environment)")
@@ -441,7 +441,7 @@ func TestPutItem_PackageFunction(t *testing.T) {
 func TestScanAllItems_PackageFunction(t *testing.T) {
 	ctx := context.Background()
 	_, err := ScanAllItems[TestUser](ctx, "test-table")
-	
+
 	// We expect this to fail since there are no AWS credentials in the test environment
 	if err == nil {
 		t.Log("ScanAllItems package function executed without error (unexpected in test environment)")

@@ -9,10 +9,10 @@ import (
 
 func TestGetInput(t *testing.T) {
 	tests := []struct {
-		name        string
-		inputName   string
-		envValue    string
-		expected    string
+		name      string
+		inputName string
+		envValue  string
+		expected  string
 	}{
 		{
 			name:      "simple input name",
@@ -188,7 +188,7 @@ func TestSetOutput(t *testing.T) {
 				// Create temporary file for GitHub Actions output
 				tempDir := t.TempDir()
 				outputFile := filepath.Join(tempDir, "output")
-				
+
 				// Create the file with proper permissions
 				file, err := os.OpenFile(outputFile, os.O_CREATE|os.O_WRONLY, 0644)
 				if err != nil {
@@ -217,7 +217,7 @@ func TestSetOutput(t *testing.T) {
 			} else {
 				// Test without GITHUB_OUTPUT set (should not error)
 				os.Unsetenv("GITHUB_OUTPUT")
-				
+
 				err := SetOutput(tt.outputName, tt.outputValue)
 				if err != nil {
 					t.Errorf("SetOutput(%q, %q) returned error: %v", tt.outputName, tt.outputValue, err)
@@ -231,7 +231,7 @@ func TestSetOutputAppend(t *testing.T) {
 	// Test that multiple SetOutput calls append to the file
 	tempDir := t.TempDir()
 	outputFile := filepath.Join(tempDir, "output")
-	
+
 	// Create the file
 	file, err := os.OpenFile(outputFile, os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
@@ -355,11 +355,11 @@ func TestLoggingFunctions(t *testing.T) {
 				t.Errorf("Debug() panicked: %v", r)
 			}
 		}()
-		
+
 		// Test with debug disabled
 		os.Unsetenv("RUNNER_DEBUG")
 		Debug("test debug message when disabled")
-		
+
 		// Test with debug enabled
 		os.Setenv("RUNNER_DEBUG", "1")
 		Debug("test debug message when enabled")

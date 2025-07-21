@@ -180,7 +180,7 @@ func TestLoadEnv(t *testing.T) {
 
 	// Test that existing environment variables are not overwritten
 	os.Setenv("TEST_KEY1", "existing_value")
-	
+
 	err = LoadEnv(tmpfile.Name())
 	if err != nil {
 		t.Fatalf("LoadEnv() error = %v", err)

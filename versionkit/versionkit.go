@@ -10,7 +10,7 @@ import (
 type SemanticVersion struct {
 	MajorVersion      uint
 	MinorVersion      uint
-	PatchVersion      uint   // Fixed typo: was PathVersion
+	PatchVersion      uint // Fixed typo: was PathVersion
 	PreReleaseVersion string
 	BuildMetadata     string
 }

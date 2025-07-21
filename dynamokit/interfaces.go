@@ -33,11 +33,11 @@ func NewClient(opts ...ClientOption) *Client {
 	client := &Client{
 		db: newDynamoDB(), // default implementation
 	}
-	
+
 	// Apply options
 	for _, opt := range opts {
 		opt(client)
 	}
-	
+
 	return client
 }
