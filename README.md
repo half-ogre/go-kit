@@ -7,8 +7,8 @@ This repository uses [Semantic Versioning (SemVer)](https://semver.org/) for ver
 
 ## License
 
-This project is licensed under the terms found in the [LICENSE](LICENSE) file.
+This project is licensed under the terms found in the [LICENSE.md](LICENSE.md) file.
 
 ## Support
 
-**No Support Guarantee:** This repository is provided as-is without any warranty or support guarantee, as outlined in the [LICENSE](LICENSE). This is a personal toolkit shared for convenience. While issues and pull requests are welcome, please note that this is primarily maintained for personal use and there are no guarantees of support or maintenance.
+**No Support Guarantee:** This repository is provided as-is without any warranty or support guarantee, as outlined in the [LICENSE.md](LICENSE.md). This is a personal toolkit shared for convenience. While issues and pull requests are welcome, please note that this is primarily maintained for personal use and there are no guarantees of support or maintenance.
