@@ -12,7 +12,7 @@ import (
 	"github.com/half-ogre/go-kit/kit"
 )
 
-func PutItem[T any](ctx context.Context, tableName string, item T, options ...PutItemInputOption) error {
+func PutItem[T any](ctx context.Context, tableName string, item T, options ...PutItemOption) error {
 	i, err := attributevalue.MarshalMap(item)
 	if err != nil {
 		return err
@@ -55,23 +55,23 @@ func PutItem[T any](ctx context.Context, tableName string, item T, options ...Pu
 	return nil
 }
 
-type PutItemInputOption func(*dynamodb.PutItemInput) error
+type PutItemOption func(*dynamodb.PutItemInput) error
 
-func WithPutItemCondition(conditionExpression string) PutItemInputOption {
+func WithPutItemCondition(conditionExpression string) PutItemOption {
 	return func(input *dynamodb.PutItemInput) error {
 		input.ConditionExpression = aws.String(conditionExpression)
 		return nil
 	}
 }
 
-func WithPutItemExpressionAttributeValues(expressionAttributeValues map[string]types.AttributeValue) PutItemInputOption {
+func WithPutItemExpressionAttributeValues(expressionAttributeValues map[string]types.AttributeValue) PutItemOption {
 	return func(input *dynamodb.PutItemInput) error {
 		input.ExpressionAttributeValues = expressionAttributeValues
 		return nil
 	}
 }
 
-func WithPutItemTableNameSuffix(suffix string) PutItemInputOption {
+func WithPutItemTableNameSuffix(suffix string) PutItemOption {
 	return func(input *dynamodb.PutItemInput) error {
 		// Always create a new string to ensure pointer comparison detects change
 		if suffix == "" {
