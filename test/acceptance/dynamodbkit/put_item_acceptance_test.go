@@ -217,13 +217,13 @@ func TestPutItemAcceptance(t *testing.T) {
 	t.Run("put_item_with_empty_strings", func(t *testing.T) {
 		// Clear table and test with empty strings (DynamoDB doesn't allow empty string attributes)
 		clearTestTable(t, ctx)
-		
+
 		// Note: DynamoDB doesn't allow empty strings as attribute values
 		// So we test with minimal non-empty values
 		minimalUser := TestUser{
 			ID:    "minimal-test",
 			Name:  "A", // Single character
-			Email: "@",  // Minimal email-like string
+			Email: "@", // Minimal email-like string
 		}
 		err := dynamodbkit.PutItem(ctx, "test_users", minimalUser)
 		require.NoError(t, err)
@@ -324,7 +324,7 @@ func TestPutItemWithSortKeyAcceptance(t *testing.T) {
 	t.Run("put_item_with_sort_key_creates_item", func(t *testing.T) {
 		// Clear table
 		clearTestTableWithSort(t, ctx)
-		
+
 		testUser := TestUserWithSort{UserID: "user1", Timestamp: "2023-01-01T10:00:00Z", Name: "SortKeyUser", Data: "test"}
 		err := dynamodbkit.PutItem(ctx, "test_users_with_sort", testUser)
 		require.NoError(t, err)
@@ -347,7 +347,7 @@ func TestPutItemWithSortKeyAcceptance(t *testing.T) {
 	t.Run("put_multiple_items_with_same_partition_key_different_sort_keys", func(t *testing.T) {
 		// Clear table and add multiple items with same partition key but different sort keys
 		clearTestTableWithSort(t, ctx)
-		
+
 		testUsers := []TestUserWithSort{
 			{UserID: "user1", Timestamp: "2023-01-01T10:00:00Z", Name: "FirstEntry", Data: "first"},
 			{UserID: "user1", Timestamp: "2023-01-01T11:00:00Z", Name: "SecondEntry", Data: "second"},

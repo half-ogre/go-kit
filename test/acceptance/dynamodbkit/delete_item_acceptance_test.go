@@ -266,7 +266,7 @@ func TestDeleteItemWithSortKeyAcceptance(t *testing.T) {
 	t.Run("delete_item_with_sort_key_removes_correct_item", func(t *testing.T) {
 		// Clear table and add test items with same partition key but different sort keys
 		clearTestTableWithSort(t, ctx)
-		
+
 		testUsers := []TestUserWithSort{
 			{UserID: "user1", Timestamp: "2023-01-01T10:00:00Z", Name: "FirstEntry", Data: "first"},
 			{UserID: "user1", Timestamp: "2023-01-01T11:00:00Z", Name: "SecondEntry", Data: "second"},

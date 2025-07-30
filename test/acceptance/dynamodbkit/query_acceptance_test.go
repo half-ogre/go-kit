@@ -228,7 +228,7 @@ func TestQueryWithSortKeyAcceptance(t *testing.T) {
 	t.Run("query_partition_key_returns_all_items_with_that_key", func(t *testing.T) {
 		// Clear table and add multiple items with same partition key but different sort keys
 		clearTestTableWithSort(t, ctx)
-		
+
 		testUsers := []TestUserWithSort{
 			{UserID: "user1", Timestamp: "2023-01-01T10:00:00Z", Name: "FirstEntry", Data: "first"},
 			{UserID: "user1", Timestamp: "2023-01-01T11:00:00Z", Name: "SecondEntry", Data: "second"},
@@ -394,7 +394,7 @@ func TestQueryWithSortKeyAcceptance(t *testing.T) {
 	t.Run("query_large_result_set_on_sort_table", func(t *testing.T) {
 		// Clear table and add many items with same partition key
 		clearTestTableWithSort(t, ctx)
-		
+
 		var testUsers []TestUserWithSort
 		for i := 1; i <= 10; i++ {
 			user := TestUserWithSort{

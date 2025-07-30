@@ -73,7 +73,7 @@ func TestGetItemAcceptance(t *testing.T) {
 		// For this test, we'll use a numeric string ID and retrieve with string type
 		// Note: DynamoDB requires exact type matching for keys
 		clearTestTable(t, ctx)
-		
+
 		// Put an item using PutItem first (which handles string internally)
 		testUser := TestUser{ID: "12345", Name: "NumericUser", Email: "numeric@example.com"}
 		err := dynamodbkit.PutItem(ctx, "test_users", testUser)
@@ -281,7 +281,7 @@ func TestGetItemWithSortKeyAcceptance(t *testing.T) {
 	t.Run("get_item_with_sort_key_returns_correct_item", func(t *testing.T) {
 		// Clear table and add test items with same partition key but different sort keys
 		clearTestTableWithSort(t, ctx)
-		
+
 		testUsers := []TestUserWithSort{
 			{UserID: "user1", Timestamp: "2023-01-01T10:00:00Z", Name: "FirstEntry", Data: "first"},
 			{UserID: "user1", Timestamp: "2023-01-01T11:00:00Z", Name: "SecondEntry", Data: "second"},
@@ -369,21 +369,21 @@ func clearTestTableWithSort(t *testing.T, ctx context.Context) {
 	// Scan all items with pagination to ensure we get everything
 	var allItems []TestUserWithSort
 	var exclusiveStartKey *string
-	
+
 	for {
 		var result *dynamodbkit.ScanOutput[TestUserWithSort]
 		var err error
-		
+
 		if exclusiveStartKey != nil {
-			result, err = dynamodbkit.Scan[TestUserWithSort](ctx, "test_users_with_sort", 
+			result, err = dynamodbkit.Scan[TestUserWithSort](ctx, "test_users_with_sort",
 				dynamodbkit.WithScanExclusiveStartKey(*exclusiveStartKey))
 		} else {
 			result, err = dynamodbkit.Scan[TestUserWithSort](ctx, "test_users_with_sort")
 		}
-		
+
 		require.NoError(t, err)
 		allItems = append(allItems, result.Items...)
-		
+
 		if result.LastEvaluatedKey == nil {
 			break
 		}
@@ -395,7 +395,7 @@ func clearTestTableWithSort(t *testing.T, ctx context.Context) {
 		_ = dynamodbkit.DeleteItem(ctx, "test_users_with_sort", "user_id", item.UserID,
 			dynamodbkit.WithDeleteItemSortKey("timestamp", item.Timestamp))
 	}
-	
+
 	// Small delay to ensure deletions are complete
 	if len(allItems) > 0 {
 		time.Sleep(100 * time.Millisecond)

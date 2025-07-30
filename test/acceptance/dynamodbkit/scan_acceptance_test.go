@@ -117,7 +117,7 @@ func TestScanAcceptance(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotNil(t, result)
 		assert.Len(t, result.Items, 2)
-		
+
 		// Should have a LastEvaluatedKey for pagination
 		assert.NotNil(t, result.LastEvaluatedKey)
 
@@ -149,17 +149,17 @@ func TestScanAcceptance(t *testing.T) {
 			var err error
 
 			if exclusiveStartKey != nil {
-				result, err = dynamodbkit.Scan[TestUser](ctx, "test_users", 
+				result, err = dynamodbkit.Scan[TestUser](ctx, "test_users",
 					dynamodbkit.WithScanLimit(3),
 					dynamodbkit.WithScanExclusiveStartKey(*exclusiveStartKey))
 			} else {
-				result, err = dynamodbkit.Scan[TestUser](ctx, "test_users", 
+				result, err = dynamodbkit.Scan[TestUser](ctx, "test_users",
 					dynamodbkit.WithScanLimit(3))
 			}
 
 			require.NoError(t, err)
 			assert.NotNil(t, result)
-			
+
 			t.Logf("Page %d: Retrieved %d items", pageCount, len(result.Items))
 			allItems = append(allItems, result.Items...)
 
@@ -208,7 +208,7 @@ func TestScanAcceptance(t *testing.T) {
 		}
 
 		// Second scan starting from LastEvaluatedKey
-		secondResult, err := dynamodbkit.Scan[TestUser](ctx, "test_users", 
+		secondResult, err := dynamodbkit.Scan[TestUser](ctx, "test_users",
 			dynamodbkit.WithScanExclusiveStartKey(*firstResult.LastEvaluatedKey))
 		require.NoError(t, err)
 
@@ -238,7 +238,7 @@ func TestScanAcceptance(t *testing.T) {
 		result, err := dynamodbkit.Scan[TestUser](ctx, "test_users", dynamodbkit.WithScanLimit(1))
 		require.NoError(t, err)
 		assert.NotNil(t, result)
-		assert.Len(t, result.Items, 1) // Should get exactly 1 item
+		assert.Len(t, result.Items, 1)            // Should get exactly 1 item
 		assert.NotNil(t, result.LastEvaluatedKey) // Should have pagination key
 
 		// Clean up
@@ -267,7 +267,7 @@ func TestScanAcceptance(t *testing.T) {
 		// Verify LastEvaluatedKey format
 		if result.LastEvaluatedKey != nil {
 			t.Logf("LastEvaluatedKey (base64): %s", *result.LastEvaluatedKey)
-			
+
 			// Decode the base64 to see the actual JSON format
 			decodedJson, err := base64.StdEncoding.DecodeString(*result.LastEvaluatedKey)
 			require.NoError(t, err)
@@ -280,7 +280,7 @@ func TestScanAcceptance(t *testing.T) {
 			// Both formats work with our SDK wrapper
 
 			// Test that the key can be used for subsequent scans
-			nextResult, err := dynamodbkit.Scan[TestUser](ctx, "test_users", 
+			nextResult, err := dynamodbkit.Scan[TestUser](ctx, "test_users",
 				dynamodbkit.WithScanExclusiveStartKey(*result.LastEvaluatedKey))
 			assert.NoError(t, err, "Should be able to use real LastEvaluatedKey for next scan")
 			assert.NotNil(t, nextResult)
@@ -310,7 +310,7 @@ func TestScanAcceptance(t *testing.T) {
 		result, err := dynamodbkit.Scan[TestUser](ctx, "test_users", dynamodbkit.WithScanLimit(100))
 		require.NoError(t, err)
 		assert.NotNil(t, result)
-		assert.Len(t, result.Items, 3) // Should get all 3 items
+		assert.Len(t, result.Items, 3)         // Should get all 3 items
 		assert.Nil(t, result.LastEvaluatedKey) // No pagination needed
 
 		// Clean up
@@ -338,21 +338,21 @@ func clearTestTable(t *testing.T, ctx context.Context) {
 	// Scan all items with pagination to ensure we get everything
 	var allItems []TestUser
 	var exclusiveStartKey *string
-	
+
 	for {
 		var result *dynamodbkit.ScanOutput[TestUser]
 		var err error
-		
+
 		if exclusiveStartKey != nil {
-			result, err = dynamodbkit.Scan[TestUser](ctx, "test_users", 
+			result, err = dynamodbkit.Scan[TestUser](ctx, "test_users",
 				dynamodbkit.WithScanExclusiveStartKey(*exclusiveStartKey))
 		} else {
 			result, err = dynamodbkit.Scan[TestUser](ctx, "test_users")
 		}
-		
+
 		require.NoError(t, err)
 		allItems = append(allItems, result.Items...)
-		
+
 		if result.LastEvaluatedKey == nil {
 			break
 		}
@@ -363,7 +363,7 @@ func clearTestTable(t *testing.T, ctx context.Context) {
 	for _, item := range allItems {
 		_ = dynamodbkit.DeleteItem(ctx, "test_users", "id", item.ID)
 	}
-	
+
 	// Small delay to ensure deletions are complete
 	if len(allItems) > 0 {
 		time.Sleep(100 * time.Millisecond)
