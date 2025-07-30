@@ -11,22 +11,6 @@ import (
 	"github.com/half-ogre/go-kit/kit"
 )
 
-type PutItemInputOption func(*dynamodb.PutItemInput) error
-
-func WithPutItemCondition(conditionExpression string) PutItemInputOption {
-	return func(input *dynamodb.PutItemInput) error {
-		input.ConditionExpression = aws.String(conditionExpression)
-		return nil
-	}
-}
-
-func WithPutItemExpressionAttributeValues(expressionAttributeValues map[string]types.AttributeValue) PutItemInputOption {
-	return func(input *dynamodb.PutItemInput) error {
-		input.ExpressionAttributeValues = expressionAttributeValues
-		return nil
-	}
-}
-
 func PutItem[T any](ctx context.Context, tableName string, item T, options ...PutItemInputOption) error {
 	i, err := attributevalue.MarshalMap(item)
 	if err != nil {
@@ -58,4 +42,20 @@ func PutItem[T any](ctx context.Context, tableName string, item T, options ...Pu
 	}
 
 	return nil
+}
+
+type PutItemInputOption func(*dynamodb.PutItemInput) error
+
+func WithPutItemCondition(conditionExpression string) PutItemInputOption {
+	return func(input *dynamodb.PutItemInput) error {
+		input.ConditionExpression = aws.String(conditionExpression)
+		return nil
+	}
+}
+
+func WithPutItemExpressionAttributeValues(expressionAttributeValues map[string]types.AttributeValue) PutItemInputOption {
+	return func(input *dynamodb.PutItemInput) error {
+		input.ExpressionAttributeValues = expressionAttributeValues
+		return nil
+	}
 }

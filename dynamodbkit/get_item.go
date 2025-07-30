@@ -10,21 +10,6 @@ import (
 	"github.com/half-ogre/go-kit/kit"
 )
 
-type GetItemInputOption func(*dynamodb.GetItemInput) error
-
-func WithGetItemSortKey[TSortKey string | int](sortKey string, sortKeyValue TSortKey) GetItemInputOption {
-	return func(input *dynamodb.GetItemInput) error {
-		sortKeyAttributeValue, err := getKeyAttributeValue(sortKeyValue)
-		if err != nil {
-			return err
-		}
-
-		input.Key[sortKey] = sortKeyAttributeValue
-
-		return nil
-	}
-}
-
 func GetItem[TItem any, TPartitionKey string | int](ctx context.Context, tableName string, partitionKey string, partitionKeyValue TPartitionKey, options ...GetItemInputOption) (*TItem, error) {
 	db, err := newDynamoDB(ctx)
 	if err != nil {
@@ -66,4 +51,19 @@ func GetItem[TItem any, TPartitionKey string | int](ctx context.Context, tableNa
 	}
 
 	return &item, nil
+}
+
+type GetItemInputOption func(*dynamodb.GetItemInput) error
+
+func WithGetItemSortKey[TSortKey string | int](sortKey string, sortKeyValue TSortKey) GetItemInputOption {
+	return func(input *dynamodb.GetItemInput) error {
+		sortKeyAttributeValue, err := getKeyAttributeValue(sortKeyValue)
+		if err != nil {
+			return err
+		}
+
+		input.Key[sortKey] = sortKeyAttributeValue
+
+		return nil
+	}
 }

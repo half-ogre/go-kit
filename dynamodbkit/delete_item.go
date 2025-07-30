@@ -10,28 +10,6 @@ import (
 	"github.com/half-ogre/go-kit/kit"
 )
 
-type DeleteItemInputOption func(*dynamodb.DeleteItemInput) error
-
-func WithDeleteItemSortKey[TSortKey string | int](sortKey string, sortKeyValue TSortKey) DeleteItemInputOption {
-	return func(input *dynamodb.DeleteItemInput) error {
-		sortKeyAttributeValue, err := getKeyAttributeValue(sortKeyValue)
-		if err != nil {
-			return err
-		}
-
-		input.Key[sortKey] = sortKeyAttributeValue
-
-		return nil
-	}
-}
-
-func WithDeleteItemReturnValues(returnValues types.ReturnValue) DeleteItemInputOption {
-	return func(input *dynamodb.DeleteItemInput) error {
-		input.ReturnValues = returnValues
-		return nil
-	}
-}
-
 func DeleteItem[TPartitionKey string | int](ctx context.Context, tableName string, partitionKey string, partitionKeyValue TPartitionKey, options ...DeleteItemInputOption) error {
 	db, err := newDynamoDB(ctx)
 	if err != nil {
@@ -67,4 +45,26 @@ func DeleteItem[TPartitionKey string | int](ctx context.Context, tableName strin
 	slog.Info("delete-item", "attributes", output.Attributes)
 
 	return nil
+}
+
+type DeleteItemInputOption func(*dynamodb.DeleteItemInput) error
+
+func WithDeleteItemReturnValues(returnValues types.ReturnValue) DeleteItemInputOption {
+	return func(input *dynamodb.DeleteItemInput) error {
+		input.ReturnValues = returnValues
+		return nil
+	}
+}
+
+func WithDeleteItemSortKey[TSortKey string | int](sortKey string, sortKeyValue TSortKey) DeleteItemInputOption {
+	return func(input *dynamodb.DeleteItemInput) error {
+		sortKeyAttributeValue, err := getKeyAttributeValue(sortKeyValue)
+		if err != nil {
+			return err
+		}
+
+		input.Key[sortKey] = sortKeyAttributeValue
+
+		return nil
+	}
 }

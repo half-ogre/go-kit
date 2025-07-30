@@ -76,6 +76,13 @@ func Scan[TItem any](ctx context.Context, tableName string, options ...ScanOptio
 	return result, nil
 }
 
+type ScanOutput[TItem any] struct {
+	LastEvaluatedKey *string
+	Items            []TItem
+}
+
+type ScanOption func(*dynamodb.ScanInput) error
+
 func WithScanExclusiveStartKey(exclusiveStartKey string) ScanOption {
 	return func(input *dynamodb.ScanInput) error {
 		decodedJson, err := base64.StdEncoding.DecodeString(exclusiveStartKey)
@@ -110,11 +117,4 @@ func WithScanLimit(limit int64) ScanOption {
 		input.Limit = aws.Int32(int32(limit))
 		return nil
 	}
-}
-
-type ScanOption func(*dynamodb.ScanInput) error
-
-type ScanOutput[TItem any] struct {
-	LastEvaluatedKey *string
-	Items            []TItem
 }
