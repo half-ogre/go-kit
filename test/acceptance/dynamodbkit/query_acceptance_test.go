@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestUserWithSort model for composite key tests  
+// TestUserWithSort model for composite key tests
 type TestUserWithSort struct {
 	UserID    string `dynamodbav:"user_id"`
 	Timestamp string `dynamodbav:"timestamp"`

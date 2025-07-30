@@ -27,9 +27,9 @@ jobs:
       
     - name: Check formatting
       run: |
-        if [ "$(gofmt -l . | wc -l)" -gt 0 ]; then
+        if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
           echo "The following files are not formatted:"
-          gofmt -l .
+          gofmt -s -l .
           exit 1
         fi
       
