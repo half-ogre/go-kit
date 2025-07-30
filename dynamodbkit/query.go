@@ -60,7 +60,7 @@ func Query[TItem any, TPartitionKey string | int](ctx context.Context, tableName
 	if queryInput.TableName == originalTableNamePtr {
 		globalSuffix := getTableNameSuffix()
 		if globalSuffix != "" {
-			queryInput.TableName = aws.String(fmt.Sprintf("%s-%s", *queryInput.TableName, globalSuffix))
+			queryInput.TableName = aws.String(fmt.Sprintf("%s%s", *queryInput.TableName, globalSuffix))
 		}
 	}
 
@@ -169,7 +169,7 @@ func WithQueryTableNameSuffix(suffix string) QueryOption {
 			newTableName := *input.TableName
 			input.TableName = &newTableName
 		} else {
-			input.TableName = aws.String(fmt.Sprintf("%s-%s", *input.TableName, suffix))
+			input.TableName = aws.String(fmt.Sprintf("%s%s", *input.TableName, suffix))
 		}
 		return nil
 	}

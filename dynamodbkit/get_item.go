@@ -42,7 +42,7 @@ func GetItem[TItem any, TPartitionKey string | int](ctx context.Context, tableNa
 	if getItemInput.TableName == originalTableNamePtr {
 		globalSuffix := getTableNameSuffix()
 		if globalSuffix != "" {
-			getItemInput.TableName = aws.String(fmt.Sprintf("%s-%s", *getItemInput.TableName, globalSuffix))
+			getItemInput.TableName = aws.String(fmt.Sprintf("%s%s", *getItemInput.TableName, globalSuffix))
 		}
 	}
 
@@ -87,7 +87,7 @@ func WithGetItemTableNameSuffix(suffix string) GetItemOption {
 			newTableName := *input.TableName
 			input.TableName = &newTableName
 		} else {
-			input.TableName = aws.String(fmt.Sprintf("%s-%s", *input.TableName, suffix))
+			input.TableName = aws.String(fmt.Sprintf("%s%s", *input.TableName, suffix))
 		}
 		return nil
 	}

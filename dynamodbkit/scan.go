@@ -43,7 +43,7 @@ func Scan[TItem any](ctx context.Context, tableName string, options ...ScanOptio
 	if scanInput.TableName == originalTableNamePtr {
 		globalSuffix := getTableNameSuffix()
 		if globalSuffix != "" {
-			scanInput.TableName = aws.String(fmt.Sprintf("%s-%s", *scanInput.TableName, globalSuffix))
+			scanInput.TableName = aws.String(fmt.Sprintf("%s%s", *scanInput.TableName, globalSuffix))
 		}
 	}
 
@@ -145,7 +145,7 @@ func WithScanTableNameSuffix(suffix string) ScanOption {
 			newTableName := *input.TableName
 			input.TableName = &newTableName
 		} else {
-			input.TableName = aws.String(fmt.Sprintf("%s-%s", *input.TableName, suffix))
+			input.TableName = aws.String(fmt.Sprintf("%s%s", *input.TableName, suffix))
 		}
 		return nil
 	}

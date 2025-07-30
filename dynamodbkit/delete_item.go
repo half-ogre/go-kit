@@ -42,7 +42,7 @@ func DeleteItem[TPartitionKey string | int](ctx context.Context, tableName strin
 	if deleteItemInput.TableName == originalTableNamePtr {
 		globalSuffix := getTableNameSuffix()
 		if globalSuffix != "" {
-			deleteItemInput.TableName = aws.String(fmt.Sprintf("%s-%s", *deleteItemInput.TableName, globalSuffix))
+			deleteItemInput.TableName = aws.String(fmt.Sprintf("%s%s", *deleteItemInput.TableName, globalSuffix))
 		}
 	}
 
@@ -88,7 +88,7 @@ func WithDeleteItemTableNameSuffix(suffix string) DeleteItemOption {
 			newTableName := *input.TableName
 			input.TableName = &newTableName
 		} else {
-			input.TableName = aws.String(fmt.Sprintf("%s-%s", *input.TableName, suffix))
+			input.TableName = aws.String(fmt.Sprintf("%s%s", *input.TableName, suffix))
 		}
 		return nil
 	}
