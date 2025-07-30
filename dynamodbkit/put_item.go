@@ -36,7 +36,7 @@ func PutItem[T any](ctx context.Context, tableName string, item T, options ...Pu
 	if putItemInput.TableName == originalTableNamePtr {
 		globalSuffix := getTableNameSuffix()
 		if globalSuffix != "" {
-			putItemInput.TableName = aws.String(fmt.Sprintf("%s-%s", *putItemInput.TableName, globalSuffix))
+			putItemInput.TableName = aws.String(fmt.Sprintf("%s%s", *putItemInput.TableName, globalSuffix))
 		}
 	}
 
@@ -79,7 +79,7 @@ func WithPutItemTableNameSuffix(suffix string) PutItemOption {
 			newTableName := *input.TableName
 			input.TableName = &newTableName
 		} else {
-			input.TableName = aws.String(fmt.Sprintf("%s-%s", *input.TableName, suffix))
+			input.TableName = aws.String(fmt.Sprintf("%s%s", *input.TableName, suffix))
 		}
 		return nil
 	}

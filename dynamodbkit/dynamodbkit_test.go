@@ -27,7 +27,7 @@ func TestUseTableNameSuffix(t *testing.T) {
 		err := DeleteItem(context.Background(), "theTableName", "id", "aUserID")
 
 		assert.NoError(t, err)
-		assert.Equal(t, "theTableName-theSuffix", actualTableName)
+		assert.Equal(t, "theTableNametheSuffix", actualTableName)
 	})
 
 	t.Run("delete_item_option_suffix_takes_precedence_over_global_suffix", func(t *testing.T) {
@@ -48,7 +48,7 @@ func TestUseTableNameSuffix(t *testing.T) {
 			WithDeleteItemTableNameSuffix("theOptionSuffix"))
 
 		assert.NoError(t, err)
-		assert.Equal(t, "theTableName-theOptionSuffix", actualTableName)
+		assert.Equal(t, "theTableNametheOptionSuffix", actualTableName)
 	})
 
 	t.Run("delete_item_does_not_apply_global_suffix_when_empty", func(t *testing.T) {
@@ -89,7 +89,7 @@ func TestUseTableNameSuffix(t *testing.T) {
 
 		assert.NoError(t, err)
 		assert.Nil(t, result)
-		assert.Equal(t, "theTableName-theSuffix", actualTableName)
+		assert.Equal(t, "theTableNametheSuffix", actualTableName)
 	})
 
 	t.Run("get_item_option_suffix_takes_precedence_over_global_suffix", func(t *testing.T) {
@@ -111,7 +111,7 @@ func TestUseTableNameSuffix(t *testing.T) {
 
 		assert.NoError(t, err)
 		assert.Nil(t, result)
-		assert.Equal(t, "theTableName-theOptionSuffix", actualTableName)
+		assert.Equal(t, "theTableNametheOptionSuffix", actualTableName)
 	})
 
 	t.Run("put_item_applies_global_suffix_when_no_option_suffix_provided", func(t *testing.T) {
@@ -132,7 +132,7 @@ func TestUseTableNameSuffix(t *testing.T) {
 		err := PutItem(context.Background(), "theTableName", testUser)
 
 		assert.NoError(t, err)
-		assert.Equal(t, "theTableName-theSuffix", actualTableName)
+		assert.Equal(t, "theTableNametheSuffix", actualTableName)
 	})
 
 	t.Run("put_item_option_suffix_takes_precedence_over_global_suffix", func(t *testing.T) {
@@ -154,7 +154,7 @@ func TestUseTableNameSuffix(t *testing.T) {
 			WithPutItemTableNameSuffix("theOptionSuffix"))
 
 		assert.NoError(t, err)
-		assert.Equal(t, "theTableName-theOptionSuffix", actualTableName)
+		assert.Equal(t, "theTableNametheOptionSuffix", actualTableName)
 	})
 
 	t.Run("query_applies_global_suffix_when_no_option_suffix_provided", func(t *testing.T) {
@@ -177,7 +177,7 @@ func TestUseTableNameSuffix(t *testing.T) {
 
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
-		assert.Equal(t, "theTableName-theSuffix", actualTableName)
+		assert.Equal(t, "theTableNametheSuffix", actualTableName)
 	})
 
 	t.Run("query_option_suffix_takes_precedence_over_global_suffix", func(t *testing.T) {
@@ -201,7 +201,7 @@ func TestUseTableNameSuffix(t *testing.T) {
 
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
-		assert.Equal(t, "theTableName-theOptionSuffix", actualTableName)
+		assert.Equal(t, "theTableNametheOptionSuffix", actualTableName)
 	})
 
 	t.Run("scan_applies_global_suffix_when_no_option_suffix_provided", func(t *testing.T) {
@@ -224,7 +224,7 @@ func TestUseTableNameSuffix(t *testing.T) {
 
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
-		assert.Equal(t, "theTableName-theSuffix", actualTableName)
+		assert.Equal(t, "theTableNametheSuffix", actualTableName)
 	})
 
 	t.Run("scan_option_suffix_takes_precedence_over_global_suffix", func(t *testing.T) {
@@ -248,7 +248,7 @@ func TestUseTableNameSuffix(t *testing.T) {
 
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
-		assert.Equal(t, "theTableName-theOptionSuffix", actualTableName)
+		assert.Equal(t, "theTableNametheOptionSuffix", actualTableName)
 	})
 
 	t.Run("multiple_operations_use_same_global_suffix", func(t *testing.T) {
@@ -275,7 +275,7 @@ func TestUseTableNameSuffix(t *testing.T) {
 		assert.NoError(t, err1)
 		assert.NoError(t, err2)
 		assert.Nil(t, result)
-		assert.Equal(t, []string{"users-theSharedSuffix", "posts-theSharedSuffix"}, tableNames)
+		assert.Equal(t, []string{"userstheSharedSuffix", "poststheSharedSuffix"}, tableNames)
 	})
 
 	t.Run("changing_global_suffix_affects_subsequent_operations", func(t *testing.T) {
@@ -300,6 +300,6 @@ func TestUseTableNameSuffix(t *testing.T) {
 
 		assert.NoError(t, err1)
 		assert.NoError(t, err2)
-		assert.Equal(t, []string{"users-firstSuffix", "users-secondSuffix"}, tableNames)
+		assert.Equal(t, []string{"usersfirstSuffix", "userssecondSuffix"}, tableNames)
 	})
 }

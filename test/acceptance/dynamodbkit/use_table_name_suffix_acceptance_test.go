@@ -25,7 +25,7 @@ func TestUseTableNameSuffixAcceptance(t *testing.T) {
 		dynamodbkit.UseTableNameSuffix("nonexistent")
 		t.Cleanup(func() { dynamodbkit.UseTableNameSuffix("") })
 
-		// Try to get item from nonexistent table (test_users-nonexistent)
+		// Try to get item from nonexistent table (test_usersnonexistent)
 		result, err := dynamodbkit.GetItem[TestUser](ctx, "test_users", "id", "test-user")
 
 		// Should get an error about the table not existing
@@ -40,7 +40,7 @@ func TestUseTableNameSuffixAcceptance(t *testing.T) {
 		dynamodbkit.UseTableNameSuffix("with_sort")
 		t.Cleanup(func() { dynamodbkit.UseTableNameSuffix("") })
 
-		// Try to retrieve from non-existent table (test_users-with_sort doesn't exist)
+		// Try to retrieve from non-existent table (test_userswith_sort doesn't exist)
 		result, err := dynamodbkit.GetItem[TestUserWithSort](ctx, "test_users", "user_id", "global-get-user",
 			dynamodbkit.WithGetItemSortKey("timestamp", "2023-01-01T10:00:00Z"))
 
@@ -55,7 +55,7 @@ func TestUseTableNameSuffixAcceptance(t *testing.T) {
 		dynamodbkit.UseTableNameSuffix("with_sort")
 		t.Cleanup(func() { dynamodbkit.UseTableNameSuffix("") })
 
-		// Try to put item to non-existent table (test_users-with_sort doesn't exist)
+		// Try to put item to non-existent table (test_userswith_sort doesn't exist)
 		testUser := TestUserWithSort{
 			UserID:    "global-put-user",
 			Timestamp: "2023-01-01T10:00:00Z",
@@ -74,7 +74,7 @@ func TestUseTableNameSuffixAcceptance(t *testing.T) {
 		dynamodbkit.UseTableNameSuffix("with_sort")
 		t.Cleanup(func() { dynamodbkit.UseTableNameSuffix("") })
 
-		// Try to query non-existent table (test_users-with_sort doesn't exist)
+		// Try to query non-existent table (test_userswith_sort doesn't exist)
 		result, err := dynamodbkit.Query[TestUserWithSort](ctx, "test_users", "user_id", "global-query-user")
 
 		// Should get an error about the table not existing
@@ -88,7 +88,7 @@ func TestUseTableNameSuffixAcceptance(t *testing.T) {
 		dynamodbkit.UseTableNameSuffix("with_sort")
 		t.Cleanup(func() { dynamodbkit.UseTableNameSuffix("") })
 
-		// Try to scan non-existent table (test_users-with_sort doesn't exist)
+		// Try to scan non-existent table (test_userswith_sort doesn't exist)
 		result, err := dynamodbkit.Scan[TestUserWithSort](ctx, "test_users")
 
 		// Should get an error about the table not existing
@@ -102,7 +102,7 @@ func TestUseTableNameSuffixAcceptance(t *testing.T) {
 		dynamodbkit.UseTableNameSuffix("with_sort")
 		t.Cleanup(func() { dynamodbkit.UseTableNameSuffix("") })
 
-		// Try to delete from non-existent table (test_users-with_sort doesn't exist)
+		// Try to delete from non-existent table (test_userswith_sort doesn't exist)
 		err := dynamodbkit.DeleteItem(ctx, "test_users", "user_id", "global-delete-user",
 			dynamodbkit.WithDeleteItemSortKey("timestamp", "2023-01-01T10:00:00Z"))
 
@@ -125,7 +125,7 @@ func TestUseTableNameSuffixAcceptance(t *testing.T) {
 		t.Cleanup(func() { dynamodbkit.UseTableNameSuffix("") })
 
 		// Query with option suffix that overrides global suffix
-		// This should query test_users (base table) instead of test_users-nonexistent
+		// This should query test_users (base table) instead of test_usersnonexistent
 		result, err := dynamodbkit.Query[TestUser](ctx, "test_users", "id", "option-override-user",
 			dynamodbkit.WithQueryTableNameSuffix(""))
 		require.NoError(t, err)
@@ -194,7 +194,7 @@ func TestUseTableNameSuffixAcceptance(t *testing.T) {
 			Name:  "User2",
 			Email: "user2@example.com",
 		}
-		// This should fail because test_users-nonexistent doesn't exist
+		// This should fail because test_usersnonexistent doesn't exist
 		err = dynamodbkit.PutItem(ctx, "test_users", testUser2)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "ResourceNotFoundException")

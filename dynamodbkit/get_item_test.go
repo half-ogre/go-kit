@@ -233,7 +233,7 @@ func TestWithGetItemTableNameSuffix(t *testing.T) {
 		err := option(input)
 
 		assert.NoError(t, err)
-		assert.Equal(t, "theTableName-theSuffix", *input.TableName)
+		assert.Equal(t, "theTableNametheSuffix", *input.TableName)
 	})
 
 	t.Run("appends_suffix_to_table_name_with_existing_suffix", func(t *testing.T) {
@@ -245,6 +245,6 @@ func TestWithGetItemTableNameSuffix(t *testing.T) {
 		err := option(input)
 
 		assert.NoError(t, err)
-		assert.Equal(t, "theTableName-existingSuffix-newSuffix", *input.TableName)
+		assert.Equal(t, "theTableName-existingSuffixnewSuffix", *input.TableName)
 	})
 }
