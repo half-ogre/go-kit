@@ -19,7 +19,7 @@ test: tidy fmt vet
 	go test -v ./... -tags=!acceptance
 
 fmt:
-	go fmt ./...
+	gofmt -s -l -w .
 
 vet:
 	go vet ./...
