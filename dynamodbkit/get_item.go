@@ -2,6 +2,7 @@ package dynamodbkit
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
@@ -9,21 +10,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/half-ogre/go-kit/kit"
 )
-
-type GetItemInputOption func(*dynamodb.GetItemInput) error
-
-func WithGetItemSortKey[TSortKey string | int](sortKey string, sortKeyValue TSortKey) GetItemInputOption {
-	return func(input *dynamodb.GetItemInput) error {
-		sortKeyAttributeValue, err := getKeyAttributeValue(sortKeyValue)
-		if err != nil {
-			return err
-		}
-
-		input.Key[sortKey] = sortKeyAttributeValue
-
-		return nil
-	}
-}
 
 func GetItem[TItem any, TPartitionKey string | int](ctx context.Context, tableName string, partitionKey string, partitionKeyValue TPartitionKey, options ...GetItemInputOption) (*TItem, error) {
 	db, err := newDynamoDB(ctx)
@@ -43,10 +29,20 @@ func GetItem[TItem any, TPartitionKey string | int](ctx context.Context, tableNa
 		},
 	}
 
+	originalTableNamePtr := getItemInput.TableName
+
 	for _, option := range options {
 		err := option(getItemInput)
 		if err != nil {
 			return nil, kit.WrapError(err, "error processing option")
+		}
+	}
+
+	// Apply global table name suffix if table name pointer wasn't changed by options
+	if getItemInput.TableName == originalTableNamePtr {
+		globalSuffix := getTableNameSuffix()
+		if globalSuffix != "" {
+			getItemInput.TableName = aws.String(fmt.Sprintf("%s-%s", *getItemInput.TableName, globalSuffix))
 		}
 	}
 
@@ -66,4 +62,33 @@ func GetItem[TItem any, TPartitionKey string | int](ctx context.Context, tableNa
 	}
 
 	return &item, nil
+}
+
+type GetItemInputOption func(*dynamodb.GetItemInput) error
+
+func WithGetItemSortKey[TSortKey string | int](sortKey string, sortKeyValue TSortKey) GetItemInputOption {
+	return func(input *dynamodb.GetItemInput) error {
+		sortKeyAttributeValue, err := getKeyAttributeValue(sortKeyValue)
+		if err != nil {
+			return err
+		}
+
+		input.Key[sortKey] = sortKeyAttributeValue
+
+		return nil
+	}
+}
+
+func WithGetItemTableNameSuffix(suffix string) GetItemInputOption {
+	return func(input *dynamodb.GetItemInput) error {
+		// Always create a new string to ensure pointer comparison detects change
+		if suffix == "" {
+			// Create new string with same content to mark as modified
+			newTableName := *input.TableName
+			input.TableName = &newTableName
+		} else {
+			input.TableName = aws.String(fmt.Sprintf("%s-%s", *input.TableName, suffix))
+		}
+		return nil
+	}
 }

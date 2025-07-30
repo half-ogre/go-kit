@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/stretchr/testify/assert"
@@ -437,5 +438,31 @@ func TestWithQueryLimit(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, input.Limit)
 		assert.Equal(t, int32(2147483647), *input.Limit)
+	})
+}
+
+func TestWithQueryTableNameSuffix(t *testing.T) {
+	t.Run("appends_suffix_to_table_name", func(t *testing.T) {
+		input := &dynamodb.QueryInput{
+			TableName: aws.String("theTableName"),
+		}
+		option := WithQueryTableNameSuffix("theSuffix")
+
+		err := option(input)
+
+		assert.NoError(t, err)
+		assert.Equal(t, "theTableName-theSuffix", *input.TableName)
+	})
+
+	t.Run("appends_suffix_to_table_name_with_existing_suffix", func(t *testing.T) {
+		input := &dynamodb.QueryInput{
+			TableName: aws.String("theTableName-existingSuffix"),
+		}
+		option := WithQueryTableNameSuffix("newSuffix")
+
+		err := option(input)
+
+		assert.NoError(t, err)
+		assert.Equal(t, "theTableName-existingSuffix-newSuffix", *input.TableName)
 	})
 }

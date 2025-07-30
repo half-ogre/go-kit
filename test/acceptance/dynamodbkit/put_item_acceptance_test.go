@@ -436,3 +436,25 @@ func TestPutItemWithSortKeyAcceptance(t *testing.T) {
 			dynamodbkit.WithDeleteItemSortKey("timestamp", testUser.Timestamp))
 	})
 }
+
+func TestPutItemTableNameSuffixAcceptance(t *testing.T) {
+	// Skip if not running against local DynamoDB
+	if os.Getenv("AWS_ENDPOINT_URL") == "" {
+		t.Skip("Skipping acceptance test - AWS_ENDPOINT_URL not set")
+	}
+
+	ctx := context.Background()
+
+	t.Run("put_item_with_table_name_suffix_modifies_table_name", func(t *testing.T) {
+		// This test uses a table that doesn't exist (since suffix would make it invalid)
+		// We expect this to fail with the modified table name
+		testUser := TestUser{ID: "test-user", Name: "TestUser", Email: "test@example.com"}
+		err := dynamodbkit.PutItem(ctx, "test_users", testUser,
+			dynamodbkit.WithPutItemTableNameSuffix("nonexistent"))
+
+		// Should get an error about the table not existing
+		assert.Error(t, err)
+		// The error should be a ResourceNotFoundException from DynamoDB
+		assert.Contains(t, err.Error(), "ResourceNotFoundException")
+	})
+}

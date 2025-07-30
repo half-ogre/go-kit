@@ -7,6 +7,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
@@ -344,5 +345,31 @@ func TestWithScanLimit(t *testing.T) {
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "limit exceeds maximum allowed value")
 		assert.Nil(t, input.Limit)
+	})
+}
+
+func TestWithScanTableNameSuffix(t *testing.T) {
+	t.Run("appends_suffix_to_table_name", func(t *testing.T) {
+		input := &dynamodb.ScanInput{
+			TableName: aws.String("theTableName"),
+		}
+		option := WithScanTableNameSuffix("theSuffix")
+
+		err := option(input)
+
+		assert.NoError(t, err)
+		assert.Equal(t, "theTableName-theSuffix", *input.TableName)
+	})
+
+	t.Run("appends_suffix_to_table_name_with_existing_suffix", func(t *testing.T) {
+		input := &dynamodb.ScanInput{
+			TableName: aws.String("theTableName-existingSuffix"),
+		}
+		option := WithScanTableNameSuffix("newSuffix")
+
+		err := option(input)
+
+		assert.NoError(t, err)
+		assert.Equal(t, "theTableName-existingSuffix-newSuffix", *input.TableName)
 	})
 }

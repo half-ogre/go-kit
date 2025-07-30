@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
@@ -11,51 +12,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/half-ogre/go-kit/kit"
 )
-
-type QueryOption func(*dynamodb.QueryInput) error
-
-func WithQueryProjectionExpression(projectionExpression string) QueryOption {
-	return func(input *dynamodb.QueryInput) error {
-		input.ProjectionExpression = aws.String(projectionExpression)
-		return nil
-	}
-}
-
-func WithQueryExclusiveStartKey(exclusiveStartKey string) QueryOption {
-	return func(input *dynamodb.QueryInput) error {
-		decodedJson, err := base64.StdEncoding.DecodeString(exclusiveStartKey)
-		if err != nil {
-			return kit.WrapError(err, "failed to decode exclusiveStartKey %s", exclusiveStartKey)
-		}
-
-		var v interface{}
-		err = json.Unmarshal(decodedJson, &v)
-		if err != nil {
-			return kit.WrapError(err, "failed to unmarshal exclusiveStartKey JSON %s", decodedJson)
-		}
-
-		k, err := attributevalue.MarshalMap(v)
-		if err != nil {
-			return kit.WrapError(err, "failed to unmarshal exclusiveStartKey JSON %s", decodedJson)
-		}
-
-		input.ExclusiveStartKey = k
-		return nil
-	}
-}
-
-func WithQueryLimit(limit int64) QueryOption {
-	return func(input *dynamodb.QueryInput) error {
-		if limit < 0 {
-			return kit.WrapError(nil, "limit must be non-negative, got %d", limit)
-		}
-		if limit > 2147483647 { // int32 max
-			return kit.WrapError(nil, "limit exceeds maximum allowed value, got %d", limit)
-		}
-		input.Limit = aws.Int32(int32(limit))
-		return nil
-	}
-}
 
 func Query[TItem any, TPartitionKey string | int](ctx context.Context, tableName string, partitionKey string, partitionKeyValue TPartitionKey, options ...QueryOption) (*QueryOutput[TItem], error) {
 	if ctx == nil {
@@ -91,10 +47,20 @@ func Query[TItem any, TPartitionKey string | int](ctx context.Context, tableName
 		ExpressionAttributeValues: expr.Values(),
 	}
 
+	originalTableNamePtr := queryInput.TableName
+
 	for _, option := range options {
 		err = option(queryInput)
 		if err != nil {
 			return nil, kit.WrapError(err, "error processing option")
+		}
+	}
+
+	// Apply global table name suffix if table name pointer wasn't changed by options
+	if queryInput.TableName == originalTableNamePtr {
+		globalSuffix := getTableNameSuffix()
+		if globalSuffix != "" {
+			queryInput.TableName = aws.String(fmt.Sprintf("%s-%s", *queryInput.TableName, globalSuffix))
 		}
 	}
 
@@ -141,4 +107,63 @@ func Query[TItem any, TPartitionKey string | int](ctx context.Context, tableName
 type QueryOutput[TItem any] struct {
 	LastEvaluatedKey *string
 	Items            []TItem
+}
+
+type QueryOption func(*dynamodb.QueryInput) error
+
+func WithQueryExclusiveStartKey(exclusiveStartKey string) QueryOption {
+	return func(input *dynamodb.QueryInput) error {
+		decodedJson, err := base64.StdEncoding.DecodeString(exclusiveStartKey)
+		if err != nil {
+			return kit.WrapError(err, "failed to decode exclusiveStartKey %s", exclusiveStartKey)
+		}
+
+		var v interface{}
+		err = json.Unmarshal(decodedJson, &v)
+		if err != nil {
+			return kit.WrapError(err, "failed to unmarshal exclusiveStartKey JSON %s", decodedJson)
+		}
+
+		k, err := attributevalue.MarshalMap(v)
+		if err != nil {
+			return kit.WrapError(err, "failed to unmarshal exclusiveStartKey JSON %s", decodedJson)
+		}
+
+		input.ExclusiveStartKey = k
+		return nil
+	}
+}
+
+func WithQueryLimit(limit int64) QueryOption {
+	return func(input *dynamodb.QueryInput) error {
+		if limit < 0 {
+			return kit.WrapError(nil, "limit must be non-negative, got %d", limit)
+		}
+		if limit > 2147483647 { // int32 max
+			return kit.WrapError(nil, "limit exceeds maximum allowed value, got %d", limit)
+		}
+		input.Limit = aws.Int32(int32(limit))
+		return nil
+	}
+}
+
+func WithQueryProjectionExpression(projectionExpression string) QueryOption {
+	return func(input *dynamodb.QueryInput) error {
+		input.ProjectionExpression = aws.String(projectionExpression)
+		return nil
+	}
+}
+
+func WithQueryTableNameSuffix(suffix string) QueryOption {
+	return func(input *dynamodb.QueryInput) error {
+		// Always create a new string to ensure pointer comparison detects change
+		if suffix == "" {
+			// Create new string with same content to mark as modified
+			newTableName := *input.TableName
+			input.TableName = &newTableName
+		} else {
+			input.TableName = aws.String(fmt.Sprintf("%s-%s", *input.TableName, suffix))
+		}
+		return nil
+	}
 }

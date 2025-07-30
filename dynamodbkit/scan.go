@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
@@ -29,10 +30,20 @@ func Scan[TItem any](ctx context.Context, tableName string, options ...ScanOptio
 		TableName: aws.String(tableName),
 	}
 
+	originalTableNamePtr := scanInput.TableName
+
 	for _, option := range options {
 		err := option(scanInput)
 		if err != nil {
 			return nil, kit.WrapError(err, "error processing option")
+		}
+	}
+
+	// Apply global table name suffix if table name pointer wasn't changed by options
+	if scanInput.TableName == originalTableNamePtr {
+		globalSuffix := getTableNameSuffix()
+		if globalSuffix != "" {
+			scanInput.TableName = aws.String(fmt.Sprintf("%s-%s", *scanInput.TableName, globalSuffix))
 		}
 	}
 
@@ -76,6 +87,13 @@ func Scan[TItem any](ctx context.Context, tableName string, options ...ScanOptio
 	return result, nil
 }
 
+type ScanOutput[TItem any] struct {
+	LastEvaluatedKey *string
+	Items            []TItem
+}
+
+type ScanOption func(*dynamodb.ScanInput) error
+
 func WithScanExclusiveStartKey(exclusiveStartKey string) ScanOption {
 	return func(input *dynamodb.ScanInput) error {
 		decodedJson, err := base64.StdEncoding.DecodeString(exclusiveStartKey)
@@ -112,9 +130,16 @@ func WithScanLimit(limit int64) ScanOption {
 	}
 }
 
-type ScanOption func(*dynamodb.ScanInput) error
-
-type ScanOutput[TItem any] struct {
-	LastEvaluatedKey *string
-	Items            []TItem
+func WithScanTableNameSuffix(suffix string) ScanOption {
+	return func(input *dynamodb.ScanInput) error {
+		// Always create a new string to ensure pointer comparison detects change
+		if suffix == "" {
+			// Create new string with same content to mark as modified
+			newTableName := *input.TableName
+			input.TableName = &newTableName
+		} else {
+			input.TableName = aws.String(fmt.Sprintf("%s-%s", *input.TableName, suffix))
+		}
+		return nil
+	}
 }

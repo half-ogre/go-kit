@@ -11,6 +11,12 @@ import (
 	"github.com/half-ogre/go-kit/kit"
 )
 
+func UseTableNameSuffix(suffix string) {
+	tableNameSuffixMu.Lock()
+	defer tableNameSuffixMu.Unlock()
+	tableNameSuffix = suffix
+}
+
 // func QueryIndexItem[TItem any, TPartitionKey string | int](ctx context.Context, tableName string, indexName string, partitionKey string, partitionKeyValue TPartitionKey) ([]TItem, error) {
 // 	db, err := newDynamoDB(ctx)
 // 	if err != nil {
@@ -87,8 +93,8 @@ type DynamoDB interface {
 }
 
 func newDynamoDB(ctx context.Context) (DynamoDB, error) {
-	mu.Lock()
-	defer mu.Unlock()
+	fakeMu.Lock()
+	defer fakeMu.Unlock()
 	if fakeNewDynamoDB != nil {
 		return fakeNewDynamoDB(ctx)
 	}
@@ -102,10 +108,19 @@ func newDynamoDB(ctx context.Context) (DynamoDB, error) {
 }
 
 var fakeNewDynamoDB func(ctx context.Context) (DynamoDB, error)
-var mu sync.Mutex
+var fakeMu sync.Mutex
 
 func setFake(fake func(ctx context.Context) (DynamoDB, error)) {
-	mu.Lock()
-	defer mu.Unlock()
+	fakeMu.Lock()
+	defer fakeMu.Unlock()
 	fakeNewDynamoDB = fake
+}
+
+var tableNameSuffix string
+var tableNameSuffixMu sync.Mutex
+
+func getTableNameSuffix() string {
+	tableNameSuffixMu.Lock()
+	defer tableNameSuffixMu.Unlock()
+	return tableNameSuffix
 }

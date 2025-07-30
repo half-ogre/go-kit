@@ -2,6 +2,7 @@ package dynamodbkit
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -9,28 +10,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/half-ogre/go-kit/kit"
 )
-
-type DeleteItemInputOption func(*dynamodb.DeleteItemInput) error
-
-func WithDeleteItemSortKey[TSortKey string | int](sortKey string, sortKeyValue TSortKey) DeleteItemInputOption {
-	return func(input *dynamodb.DeleteItemInput) error {
-		sortKeyAttributeValue, err := getKeyAttributeValue(sortKeyValue)
-		if err != nil {
-			return err
-		}
-
-		input.Key[sortKey] = sortKeyAttributeValue
-
-		return nil
-	}
-}
-
-func WithDeleteItemReturnValues(returnValues types.ReturnValue) DeleteItemInputOption {
-	return func(input *dynamodb.DeleteItemInput) error {
-		input.ReturnValues = returnValues
-		return nil
-	}
-}
 
 func DeleteItem[TPartitionKey string | int](ctx context.Context, tableName string, partitionKey string, partitionKeyValue TPartitionKey, options ...DeleteItemInputOption) error {
 	db, err := newDynamoDB(ctx)
@@ -50,10 +29,20 @@ func DeleteItem[TPartitionKey string | int](ctx context.Context, tableName strin
 		},
 	}
 
+	originalTableNamePtr := deleteItemInput.TableName
+
 	for _, option := range options {
 		err := option(deleteItemInput)
 		if err != nil {
 			return kit.WrapError(err, "error processing option")
+		}
+	}
+
+	// Apply global table name suffix if table name pointer wasn't changed by options
+	if deleteItemInput.TableName == originalTableNamePtr {
+		globalSuffix := getTableNameSuffix()
+		if globalSuffix != "" {
+			deleteItemInput.TableName = aws.String(fmt.Sprintf("%s-%s", *deleteItemInput.TableName, globalSuffix))
 		}
 	}
 
@@ -67,4 +56,40 @@ func DeleteItem[TPartitionKey string | int](ctx context.Context, tableName strin
 	slog.Info("delete-item", "attributes", output.Attributes)
 
 	return nil
+}
+
+type DeleteItemInputOption func(*dynamodb.DeleteItemInput) error
+
+func WithDeleteItemReturnValues(returnValues types.ReturnValue) DeleteItemInputOption {
+	return func(input *dynamodb.DeleteItemInput) error {
+		input.ReturnValues = returnValues
+		return nil
+	}
+}
+
+func WithDeleteItemSortKey[TSortKey string | int](sortKey string, sortKeyValue TSortKey) DeleteItemInputOption {
+	return func(input *dynamodb.DeleteItemInput) error {
+		sortKeyAttributeValue, err := getKeyAttributeValue(sortKeyValue)
+		if err != nil {
+			return err
+		}
+
+		input.Key[sortKey] = sortKeyAttributeValue
+
+		return nil
+	}
+}
+
+func WithDeleteItemTableNameSuffix(suffix string) DeleteItemInputOption {
+	return func(input *dynamodb.DeleteItemInput) error {
+		// Always create a new string to ensure pointer comparison detects change
+		if suffix == "" {
+			// Create new string with same content to mark as modified
+			newTableName := *input.TableName
+			input.TableName = &newTableName
+		} else {
+			input.TableName = aws.String(fmt.Sprintf("%s-%s", *input.TableName, suffix))
+		}
+		return nil
+	}
 }

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/stretchr/testify/assert"
@@ -141,6 +142,32 @@ func TestDeleteItem(t *testing.T) {
 		err := DeleteItem(context.Background(), "aTable", "id", "aUserID")
 
 		assert.NoError(t, err)
+	})
+}
+
+func TestWithDeleteItemTableNameSuffix(t *testing.T) {
+	t.Run("appends_suffix_to_table_name", func(t *testing.T) {
+		input := &dynamodb.DeleteItemInput{
+			TableName: aws.String("theTableName"),
+		}
+		option := WithDeleteItemTableNameSuffix("theSuffix")
+
+		err := option(input)
+
+		assert.NoError(t, err)
+		assert.Equal(t, "theTableName-theSuffix", *input.TableName)
+	})
+
+	t.Run("appends_suffix_to_table_name_with_existing_suffix", func(t *testing.T) {
+		input := &dynamodb.DeleteItemInput{
+			TableName: aws.String("theTableName-existingSuffix"),
+		}
+		option := WithDeleteItemTableNameSuffix("newSuffix")
+
+		err := option(input)
+
+		assert.NoError(t, err)
+		assert.Equal(t, "theTableName-existingSuffix-newSuffix", *input.TableName)
 	})
 }
 
