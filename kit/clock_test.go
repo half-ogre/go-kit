@@ -11,7 +11,7 @@ func TestNew(t *testing.T) {
 	t.Run("defaults_to_real_time_when_no_options_provided", func(t *testing.T) {
 		beforeTime := time.Now()
 
-		clk := New()
+		clk := NewClock()
 		clockTime := clk.Now()
 
 		afterTime := time.Now()
@@ -23,7 +23,7 @@ func TestNew(t *testing.T) {
 		theFixedTime := time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC)
 		fakeTimeFunc := func() time.Time { return theFixedTime }
 
-		clk := New(WithFake(fakeTimeFunc))
+		clk := NewClock(WithFake(fakeTimeFunc))
 
 		clockTime := clk.Now()
 		assert.True(t, clockTime.Equal(theFixedTime))
@@ -36,7 +36,7 @@ func TestNew(t *testing.T) {
 			return time.Date(2025, 1, 1, 12, callCount, 0, 0, time.UTC)
 		}
 
-		clk := New(WithFake(fakeTimeFunc))
+		clk := NewClock(WithFake(fakeTimeFunc))
 
 		firstTime := clk.Now()
 		secondTime := clk.Now()

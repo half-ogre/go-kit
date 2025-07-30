@@ -12,7 +12,7 @@ type clock struct {
 
 type ClockOption func(*clock)
 
-func New(opts ...ClockOption) ClockInterface {
+func NewClock(opts ...ClockOption) ClockInterface {
 	c := &clock{}
 
 	for _, opt := range opts {
