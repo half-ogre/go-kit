@@ -3,286 +3,247 @@ package envkit
 import (
 	"os"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGetenvBoolWithDefault(t *testing.T) {
-	tests := []struct {
-		name         string
-		envValue     string
-		defaultValue bool
-		expectedBool bool
-		expectError  bool
-	}{
-		{
-			name:         "environment variable not set returns default true",
-			envValue:     "",
-			defaultValue: true,
-			expectedBool: true,
-			expectError:  false,
-		},
-		{
-			name:         "environment variable not set returns default false",
-			envValue:     "",
-			defaultValue: false,
-			expectedBool: false,
-			expectError:  false,
-		},
-		{
-			name:         "environment variable set to true",
-			envValue:     "true",
-			defaultValue: false,
-			expectedBool: true,
-			expectError:  false,
-		},
-		{
-			name:         "environment variable set to false",
-			envValue:     "false",
-			defaultValue: true,
-			expectedBool: false,
-			expectError:  false,
-		},
-		{
-			name:         "environment variable set to 1",
-			envValue:     "1",
-			defaultValue: false,
-			expectedBool: true,
-			expectError:  false,
-		},
-		{
-			name:         "environment variable set to 0",
-			envValue:     "0",
-			defaultValue: true,
-			expectedBool: false,
-			expectError:  false,
-		},
-		{
-			name:         "environment variable set to invalid value",
-			envValue:     "invalid",
-			defaultValue: true,
-			expectedBool: false,
-			expectError:  true,
-		},
-	}
+	key := "TEST_BOOL_ENV_VAR"
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Clean up environment variable before and after test
-			key := "TEST_BOOL_ENV_VAR"
-			defer os.Unsetenv(key)
+	t.Run("environment_variable_not_set_returns_default_true", func(t *testing.T) {
+		theDefaultValue := true
+		os.Unsetenv(key)
+		t.Cleanup(func() { os.Unsetenv(key) })
 
-			if tt.envValue != "" {
-				os.Setenv(key, tt.envValue)
-			} else {
-				os.Unsetenv(key)
-			}
+		result, err := GetenvBoolWithDefault(key, theDefaultValue)
 
-			result, err := GetenvBoolWithDefault(key, tt.defaultValue)
+		assert.NoError(t, err)
+		assert.True(t, result)
+	})
 
-			if tt.expectError {
-				if err == nil {
-					t.Error("GetenvBoolWithDefault() expected error but got nil")
-				}
-			} else {
-				if err != nil {
-					t.Errorf("GetenvBoolWithDefault() unexpected error: %v", err)
-				}
-				if result != tt.expectedBool {
-					t.Errorf("GetenvBoolWithDefault() = %v, want %v", result, tt.expectedBool)
-				}
-			}
-		})
-	}
+	t.Run("environment_variable_not_set_returns_default_false", func(t *testing.T) {
+		theDefaultValue := false
+		os.Unsetenv(key)
+		t.Cleanup(func() { os.Unsetenv(key) })
+
+		result, err := GetenvBoolWithDefault(key, theDefaultValue)
+
+		assert.NoError(t, err)
+		assert.False(t, result)
+	})
+
+	t.Run("environment_variable_set_to_true", func(t *testing.T) {
+		theDefaultValue := false
+		os.Setenv(key, "true")
+		t.Cleanup(func() { os.Unsetenv(key) })
+
+		result, err := GetenvBoolWithDefault(key, theDefaultValue)
+
+		assert.NoError(t, err)
+		assert.True(t, result)
+	})
+
+	t.Run("environment_variable_set_to_false", func(t *testing.T) {
+		theDefaultValue := true
+		os.Setenv(key, "false")
+		t.Cleanup(func() { os.Unsetenv(key) })
+
+		result, err := GetenvBoolWithDefault(key, theDefaultValue)
+
+		assert.NoError(t, err)
+		assert.False(t, result)
+	})
+
+	t.Run("environment_variable_set_to_1", func(t *testing.T) {
+		theDefaultValue := false
+		os.Setenv(key, "1")
+		t.Cleanup(func() { os.Unsetenv(key) })
+
+		result, err := GetenvBoolWithDefault(key, theDefaultValue)
+
+		assert.NoError(t, err)
+		assert.True(t, result)
+	})
+
+	t.Run("environment_variable_set_to_0", func(t *testing.T) {
+		theDefaultValue := true
+		os.Setenv(key, "0")
+		t.Cleanup(func() { os.Unsetenv(key) })
+
+		result, err := GetenvBoolWithDefault(key, theDefaultValue)
+
+		assert.NoError(t, err)
+		assert.False(t, result)
+	})
+
+	t.Run("environment_variable_set_to_invalid_value", func(t *testing.T) {
+		theDefaultValue := true
+		os.Setenv(key, "invalid")
+		t.Cleanup(func() { os.Unsetenv(key) })
+
+		result, err := GetenvBoolWithDefault(key, theDefaultValue)
+
+		assert.Error(t, err)
+		assert.False(t, result)
+	})
 }
 
 func TestGetenvIntWithDefault(t *testing.T) {
-	tests := []struct {
-		name         string
-		envValue     string
-		defaultValue int
-		expectedInt  int
-		expectError  bool
-	}{
-		{
-			name:         "environment variable not set returns default",
-			envValue:     "",
-			defaultValue: 42,
-			expectedInt:  42,
-			expectError:  false,
-		},
-		{
-			name:         "environment variable set to positive integer",
-			envValue:     "123",
-			defaultValue: 42,
-			expectedInt:  123,
-			expectError:  false,
-		},
-		{
-			name:         "environment variable set to negative integer",
-			envValue:     "-456",
-			defaultValue: 42,
-			expectedInt:  -456,
-			expectError:  false,
-		},
-		{
-			name:         "environment variable set to zero",
-			envValue:     "0",
-			defaultValue: 42,
-			expectedInt:  0,
-			expectError:  false,
-		},
-		{
-			name:         "environment variable set to invalid value",
-			envValue:     "invalid",
-			defaultValue: 42,
-			expectedInt:  0,
-			expectError:  true,
-		},
-		{
-			name:         "environment variable set to float value",
-			envValue:     "3.14",
-			defaultValue: 42,
-			expectedInt:  0,
-			expectError:  true,
-		},
-	}
+	key := "TEST_INT_ENV_VAR"
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Clean up environment variable before and after test
-			key := "TEST_INT_ENV_VAR"
-			defer os.Unsetenv(key)
+	t.Run("environment_variable_not_set_returns_default", func(t *testing.T) {
+		theDefaultValue := 42
+		os.Unsetenv(key)
+		t.Cleanup(func() { os.Unsetenv(key) })
 
-			if tt.envValue != "" {
-				os.Setenv(key, tt.envValue)
-			} else {
-				os.Unsetenv(key)
-			}
+		result, err := GetenvIntWithDefault(key, theDefaultValue)
 
-			result, err := GetenvIntWithDefault(key, tt.defaultValue)
+		assert.NoError(t, err)
+		assert.Equal(t, 42, result)
+	})
 
-			if tt.expectError {
-				if err == nil {
-					t.Error("GetenvIntWithDefault() expected error but got nil")
-				}
-			} else {
-				if err != nil {
-					t.Errorf("GetenvIntWithDefault() unexpected error: %v", err)
-				}
-				if result != tt.expectedInt {
-					t.Errorf("GetenvIntWithDefault() = %v, want %v", result, tt.expectedInt)
-				}
-			}
-		})
-	}
+	t.Run("environment_variable_set_to_positive_integer", func(t *testing.T) {
+		theDefaultValue := 42
+		os.Setenv(key, "123")
+		t.Cleanup(func() { os.Unsetenv(key) })
+
+		result, err := GetenvIntWithDefault(key, theDefaultValue)
+
+		assert.NoError(t, err)
+		assert.Equal(t, 123, result)
+	})
+
+	t.Run("environment_variable_set_to_negative_integer", func(t *testing.T) {
+		theDefaultValue := 42
+		os.Setenv(key, "-456")
+		t.Cleanup(func() { os.Unsetenv(key) })
+
+		result, err := GetenvIntWithDefault(key, theDefaultValue)
+
+		assert.NoError(t, err)
+		assert.Equal(t, -456, result)
+	})
+
+	t.Run("environment_variable_set_to_zero", func(t *testing.T) {
+		theDefaultValue := 42
+		os.Setenv(key, "0")
+		t.Cleanup(func() { os.Unsetenv(key) })
+
+		result, err := GetenvIntWithDefault(key, theDefaultValue)
+
+		assert.NoError(t, err)
+		assert.Equal(t, 0, result)
+	})
+
+	t.Run("environment_variable_set_to_invalid_value", func(t *testing.T) {
+		theDefaultValue := 42
+		os.Setenv(key, "invalid")
+		t.Cleanup(func() { os.Unsetenv(key) })
+
+		result, err := GetenvIntWithDefault(key, theDefaultValue)
+
+		assert.Error(t, err)
+		assert.Equal(t, 0, result)
+	})
+
+	t.Run("environment_variable_set_to_float_value", func(t *testing.T) {
+		theDefaultValue := 42
+		os.Setenv(key, "3.14")
+		t.Cleanup(func() { os.Unsetenv(key) })
+
+		result, err := GetenvIntWithDefault(key, theDefaultValue)
+
+		assert.Error(t, err)
+		assert.Equal(t, 0, result)
+	})
 }
 
 func TestGetenvWithDefault(t *testing.T) {
-	tests := []struct {
-		name         string
-		envValue     string
-		defaultValue string
-		expected     string
-	}{
-		{
-			name:         "environment variable not set returns default",
-			envValue:     "",
-			defaultValue: "theDefaultValue",
-			expected:     "theDefaultValue",
-		},
-		{
-			name:         "environment variable set to value",
-			envValue:     "theEnvironmentValue",
-			defaultValue: "theDefaultValue",
-			expected:     "theEnvironmentValue",
-		},
-		{
-			name:         "environment variable set to empty string returns default",
-			envValue:     "",
-			defaultValue: "theDefaultValue",
-			expected:     "theDefaultValue",
-		},
-		{
-			name:         "environment variable with spaces",
-			envValue:     "value with spaces",
-			defaultValue: "theDefaultValue",
-			expected:     "value with spaces",
-		},
-		{
-			name:         "environment variable with special characters",
-			envValue:     "value!@#$%^&*()",
-			defaultValue: "theDefaultValue",
-			expected:     "value!@#$%^&*()",
-		},
-	}
+	key := "TEST_STRING_ENV_VAR"
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Clean up environment variable before and after test
-			key := "TEST_STRING_ENV_VAR"
-			defer os.Unsetenv(key)
+	t.Run("environment_variable_not_set_returns_default", func(t *testing.T) {
+		theDefaultValue := "theDefaultValue"
+		os.Unsetenv(key)
+		t.Cleanup(func() { os.Unsetenv(key) })
 
-			if tt.envValue != "" {
-				os.Setenv(key, tt.envValue)
-			} else {
-				os.Unsetenv(key)
-			}
+		result := GetenvWithDefault(key, theDefaultValue)
 
-			result := GetenvWithDefault(key, tt.defaultValue)
+		assert.Equal(t, theDefaultValue, result)
+	})
 
-			if result != tt.expected {
-				t.Errorf("GetenvWithDefault() = %q, want %q", result, tt.expected)
-			}
-		})
-	}
+	t.Run("environment_variable_set_to_value", func(t *testing.T) {
+		theDefaultValue := "theDefaultValue"
+		theEnvironmentValue := "theEnvironmentValue"
+		os.Setenv(key, theEnvironmentValue)
+		t.Cleanup(func() { os.Unsetenv(key) })
+
+		result := GetenvWithDefault(key, theDefaultValue)
+
+		assert.Equal(t, theEnvironmentValue, result)
+	})
+
+	t.Run("environment_variable_set_to_empty_string_returns_default", func(t *testing.T) {
+		theDefaultValue := "theDefaultValue"
+		os.Setenv(key, "")
+		t.Cleanup(func() { os.Unsetenv(key) })
+
+		result := GetenvWithDefault(key, theDefaultValue)
+
+		assert.Equal(t, theDefaultValue, result)
+	})
+
+	t.Run("environment_variable_with_spaces", func(t *testing.T) {
+		theDefaultValue := "theDefaultValue"
+		theValueWithSpaces := "value with spaces"
+		os.Setenv(key, theValueWithSpaces)
+		t.Cleanup(func() { os.Unsetenv(key) })
+
+		result := GetenvWithDefault(key, theDefaultValue)
+
+		assert.Equal(t, theValueWithSpaces, result)
+	})
+
+	t.Run("environment_variable_with_special_characters", func(t *testing.T) {
+		theDefaultValue := "theDefaultValue"
+		theSpecialValue := "value!@#$%^&*()"
+		os.Setenv(key, theSpecialValue)
+		t.Cleanup(func() { os.Unsetenv(key) })
+
+		result := GetenvWithDefault(key, theDefaultValue)
+
+		assert.Equal(t, theSpecialValue, result)
+	})
 }
 
 func TestMustGetenv(t *testing.T) {
-	t.Run("environment variable set returns value", func(t *testing.T) {
+	t.Run("environment_variable_set_returns_value", func(t *testing.T) {
 		key := "TEST_MUST_ENV_VAR"
-		expectedValue := "theRequiredValue"
-
-		defer os.Unsetenv(key)
-		os.Setenv(key, expectedValue)
+		theRequiredValue := "theRequiredValue"
+		os.Setenv(key, theRequiredValue)
+		t.Cleanup(func() { os.Unsetenv(key) })
 
 		result := MustGetenv(key)
 
-		if result != expectedValue {
-			t.Errorf("MustGetenv() = %q, want %q", result, expectedValue)
-		}
+		assert.Equal(t, theRequiredValue, result)
 	})
 
-	t.Run("environment variable not set panics", func(t *testing.T) {
+	t.Run("environment_variable_not_set_panics", func(t *testing.T) {
 		key := "TEST_MUST_ENV_VAR_NOT_SET"
+		os.Unsetenv(key)
+		t.Cleanup(func() { os.Unsetenv(key) })
 
-		defer os.Unsetenv(key)
-		os.Unsetenv(key) // Ensure it's not set
-
-		defer func() {
-			if r := recover(); r == nil {
-				t.Error("MustGetenv() expected panic but got none")
-			} else {
-				expectedMessage := "environment variable TEST_MUST_ENV_VAR_NOT_SET not set"
-				if r != expectedMessage {
-					t.Errorf("MustGetenv() panic message = %q, want %q", r, expectedMessage)
-				}
-			}
-		}()
-
-		MustGetenv(key)
+		assert.Panics(t, func() {
+			MustGetenv(key)
+		})
 	})
 
-	t.Run("environment variable set to empty string panics", func(t *testing.T) {
+	t.Run("environment_variable_set_to_empty_string_panics", func(t *testing.T) {
 		key := "TEST_MUST_ENV_VAR_EMPTY"
-
-		defer os.Unsetenv(key)
 		os.Setenv(key, "")
+		t.Cleanup(func() { os.Unsetenv(key) })
 
-		defer func() {
-			if r := recover(); r == nil {
-				t.Error("MustGetenv() expected panic but got none")
-			}
-		}()
-
-		MustGetenv(key)
+		assert.Panics(t, func() {
+			MustGetenv(key)
+		})
 	})
 }

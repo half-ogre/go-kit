@@ -4,64 +4,42 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestMapValues(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    map[string]string
-		expected []string
-	}{
-		{
-			name:     "an empty map",
-			input:    map[string]string{},
-			expected: []string{},
-		},
-		{
-			name: "a single element",
-			input: map[string]string{
-				"aFirstKey": "theFirstValue",
-			},
-			expected: []string{"theFirstValue"},
-		},
-		{
-			name: "multiple elements",
-			input: map[string]string{
-				"aFirstKey":  "theFirstValue",
-				"aSecondKey": "theSecondValue",
-				"aThirdKey":  "theThirdValue",
-			},
-			expected: []string{"theFirstValue", "theSecondValue", "theThirdValue"},
-		},
-	}
+	t.Run("an_empty_map", func(t *testing.T) {
+		input := map[string]string{}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := MapValues(tt.input)
+		result := MapValues(input)
 
-			if len(result) != len(tt.expected) {
-				t.Errorf("MapValues() returned %d values, want %d", len(result), len(tt.expected))
-				return
-			}
+		assert.Empty(t, result)
+	})
 
-			// Create a map to count occurrences since order is not guaranteed
-			resultCount := make(map[string]int)
-			for _, v := range result {
-				resultCount[v]++
-			}
+	t.Run("a_single_element", func(t *testing.T) {
+		input := map[string]string{"aFirstKey": "theFirstValue"}
 
-			expectedCount := make(map[string]int)
-			for _, v := range tt.expected {
-				expectedCount[v]++
-			}
+		result := MapValues(input)
 
-			for k, v := range expectedCount {
-				if resultCount[k] != v {
-					t.Errorf("MapValues() value %s appears %d times, want %d times", k, resultCount[k], v)
-				}
-			}
-		})
-	}
+		assert.Len(t, result, 1)
+		assert.Contains(t, result, "theFirstValue")
+	})
+
+	t.Run("multiple_elements", func(t *testing.T) {
+		input := map[string]string{
+			"aFirstKey":  "theFirstValue",
+			"aSecondKey": "theSecondValue",
+			"aThirdKey":  "theThirdValue",
+		}
+
+		result := MapValues(input)
+
+		assert.Len(t, result, 3)
+		assert.Contains(t, result, "theFirstValue")
+		assert.Contains(t, result, "theSecondValue")
+		assert.Contains(t, result, "theThirdValue")
+	})
 }
 
 func TestMapValuesWithDifferentTypes(t *testing.T) {
@@ -73,9 +51,7 @@ func TestMapValuesWithDifferentTypes(t *testing.T) {
 	}
 
 	stringResult := MapValues(stringMap)
-	if len(stringResult) != 3 {
-		t.Errorf("MapValues() with strings returned %d values, want 3", len(stringResult))
-	}
+	assert.Len(t, stringResult, 3)
 
 	// Test with struct values
 	type person struct {
@@ -89,89 +65,59 @@ func TestMapValuesWithDifferentTypes(t *testing.T) {
 	}
 
 	personResult := MapValues(personMap)
-	if len(personResult) != 2 {
-		t.Errorf("MapValues() with structs returned %d values, want 2", len(personResult))
-	}
+	assert.Len(t, personResult, 2)
 }
 
 func TestWrapError(t *testing.T) {
-	baseErr := errors.New("theError")
+	t.Run("wrap_without_formatting", func(t *testing.T) {
+		theError := errors.New("theError")
 
-	tests := []struct {
-		name           string
-		err            error
-		format         string
-		args           []any
-		expectedPrefix string
-	}{
-		{
-			name:           "wrap without formatting",
-			err:            baseErr,
-			format:         "theMessageWithoutFormatting",
-			args:           []any{},
-			expectedPrefix: "theMessageWithoutFormatting: theError",
-		},
-		{
-			name:           "wrap with formatting",
-			err:            baseErr,
-			format:         "theMessageWithFormatting of %d",
-			args:           []any{42},
-			expectedPrefix: "theMessageWithFormatting of 42: theError",
-		},
-		{
-			name:           "wrap with multiple format args",
-			err:            baseErr,
-			format:         "theMessageWithFormatting of %d and %s",
-			args:           []any{42, "theValue"},
-			expectedPrefix: "theMessageWithFormatting of 42 and theValue: theError",
-		},
-		{
-			name:           "wrap with nil error",
-			err:            nil,
-			format:         "theMessage",
-			args:           []any{},
-			expectedPrefix: "theMessage: %!w(<nil>)",
-		},
-	}
+		result := WrapError(theError, "theMessageWithoutFormatting")
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := WrapError(tt.err, tt.format, tt.args...)
+		assert.NotNil(t, result)
+		assert.Equal(t, "theMessageWithoutFormatting: theError", result.Error())
+		assert.True(t, errors.Is(result, theError))
+	})
 
-			if result == nil {
-				t.Error("WrapError() returned nil")
-				return
-			}
+	t.Run("wrap_with_formatting", func(t *testing.T) {
+		theError := errors.New("theError")
+		format := "theMessageWithFormatting of %d"
 
-			resultStr := result.Error()
-			if resultStr != tt.expectedPrefix {
-				t.Errorf("WrapError() = %q, want %q", resultStr, tt.expectedPrefix)
-			}
+		result := WrapError(theError, format, 42)
 
-			// Test error unwrapping for non-nil base errors
-			if tt.err != nil {
-				if !errors.Is(result, tt.err) {
-					t.Errorf("WrapError() result does not wrap the original error")
-				}
-			}
-		})
-	}
+		assert.NotNil(t, result)
+		assert.Equal(t, "theMessageWithFormatting of 42: theError", result.Error())
+		assert.True(t, errors.Is(result, theError))
+	})
+
+	t.Run("wrap_with_multiple_format_args", func(t *testing.T) {
+		theError := errors.New("theError")
+		format := "theMessageWithFormatting of %d and %s"
+
+		result := WrapError(theError, format, 42, "theValue")
+
+		assert.NotNil(t, result)
+		assert.Equal(t, "theMessageWithFormatting of 42 and theValue: theError", result.Error())
+		assert.True(t, errors.Is(result, theError))
+	})
+
+	t.Run("wrap_with_nil_error", func(t *testing.T) {
+
+		result := WrapError(nil, "theMessage")
+
+		assert.NotNil(t, result)
+		assert.Equal(t, "theMessage: %!w(<nil>)", result.Error())
+	})
 }
 
 func TestWrapErrorChaining(t *testing.T) {
 	err1 := errors.New("original error")
 	err2 := WrapError(err1, "first wrap")
+
 	err3 := WrapError(err2, "second wrap")
 
-	expected := "second wrap: first wrap: original error"
-	if err3.Error() != expected {
-		t.Errorf("Chained WrapError() = %q, want %q", err3.Error(), expected)
-	}
-
-	// Verify error chain
-	if !errors.Is(err3, err1) {
-		t.Error("Chained WrapError() does not properly wrap the original error")
-	}
+	assert.Equal(t, "second wrap: first wrap: original error", err3.Error())
+	assert.True(t, errors.Is(err3, err1))
 }
 
 func ExampleMapValues() {
