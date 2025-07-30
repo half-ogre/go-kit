@@ -21,6 +21,7 @@ func mustMarshalMap(t *testing.T, v any) map[string]types.AttributeValue {
 type FakeDynamoDB struct {
 	DeleteItemFake func(ctx context.Context, params *dynamodb.DeleteItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error)
 	GetItemFake    func(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error)
+	ListTablesFake func(ctx context.Context, params *dynamodb.ListTablesInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error)
 	PutItemFake    func(ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error)
 	QueryFake      func(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error)
 	ScanFake       func(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error)
@@ -39,6 +40,14 @@ func (f *FakeDynamoDB) GetItem(ctx context.Context, params *dynamodb.GetItemInpu
 		return f.GetItemFake(ctx, params, optFns...)
 	} else {
 		panic("GetItem fake not implemented")
+	}
+}
+
+func (f *FakeDynamoDB) ListTables(ctx context.Context, params *dynamodb.ListTablesInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error) {
+	if f.ListTablesFake != nil {
+		return f.ListTablesFake(ctx, params, optFns...)
+	} else {
+		panic("ListTables fake not implemented")
 	}
 }
 
