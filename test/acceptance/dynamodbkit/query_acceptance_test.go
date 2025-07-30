@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
@@ -731,5 +732,88 @@ func TestQueryTableNameSuffixAcceptance(t *testing.T) {
 		assert.Nil(t, result)
 		// The error should be a ResourceNotFoundException from DynamoDB
 		assert.Contains(t, err.Error(), "ResourceNotFoundException")
+	})
+}
+
+func TestQueryIndexNameAcceptance(t *testing.T) {
+	// Skip if not running against local DynamoDB
+	if os.Getenv("AWS_ENDPOINT_URL") == "" {
+		t.Skip("Skipping acceptance test - AWS_ENDPOINT_URL not set")
+	}
+
+	ctx := context.Background()
+
+	t.Run("query_with_nonexistent_index_returns_error", func(t *testing.T) {
+		// Clear table and add test data
+		clearTestTable(t, ctx)
+		testUser := TestUser{ID: "index-test-user", Name: "IndexTestUser", Email: "indextest@example.com"}
+		err := dynamodbkit.PutItem(ctx, "test_users", testUser)
+		require.NoError(t, err)
+
+		// Try to query using a non-existent index
+		result, err := dynamodbkit.Query[TestUser](ctx, "test_users", "id", "index-test-user",
+			dynamodbkit.WithQueryIndexName("NonExistentIndex"))
+
+		// Should get an error about the index not existing
+		assert.Error(t, err)
+		assert.Nil(t, result)
+		// The error should indicate the index doesn't exist
+		assert.Contains(t, err.Error(), "ValidationException")
+
+		// Clean up
+		_ = dynamodbkit.DeleteItem(ctx, "test_users", "id", testUser.ID)
+	})
+
+	t.Run("query_with_empty_index_name_returns_error", func(t *testing.T) {
+		// Clear table and add test data
+		clearTestTable(t, ctx)
+		testUser := TestUser{ID: "empty-index-test", Name: "EmptyIndexTest", Email: "emptyindex@example.com"}
+		err := dynamodbkit.PutItem(ctx, "test_users", testUser)
+		require.NoError(t, err)
+
+		// Try to query using an empty index name
+		result, err := dynamodbkit.Query[TestUser](ctx, "test_users", "id", "empty-index-test",
+			dynamodbkit.WithQueryIndexName(""))
+
+		// Should get an error about the index not existing or being invalid
+		assert.Error(t, err)
+		assert.Nil(t, result)
+		// Could be ResourceNotFoundException or ValidationException depending on DynamoDB behavior
+		assert.True(t,
+			strings.Contains(err.Error(), "ResourceNotFoundException") ||
+				strings.Contains(err.Error(), "ValidationException"),
+			"Expected ResourceNotFoundException or ValidationException, got: %s", err.Error())
+
+		// Clean up
+		_ = dynamodbkit.DeleteItem(ctx, "test_users", "id", testUser.ID)
+	})
+
+	t.Run("query_with_index_name_option_applied_correctly", func(t *testing.T) {
+		// This test verifies that the index name option is applied by checking
+		// that we get a specific error about the index not existing
+		clearTestTableWithSort(t, ctx)
+
+		// Add test data
+		testUser := TestUserWithSort{
+			UserID:    "index-option-test",
+			Timestamp: "2023-01-01T10:00:00Z",
+			Name:      "IndexOptionTest",
+			Data:      "test-data",
+		}
+		err := dynamodbkit.PutItem(ctx, "test_users_with_sort", testUser)
+		require.NoError(t, err)
+
+		// Try to query using a non-existent index on the sort table
+		result, err := dynamodbkit.Query[TestUserWithSort](ctx, "test_users_with_sort", "user_id", "index-option-test",
+			dynamodbkit.WithQueryIndexName("test-gsi-index"))
+
+		// Should get an error about the specific index not existing
+		assert.Error(t, err)
+		assert.Nil(t, result)
+		assert.Contains(t, err.Error(), "ValidationException")
+
+		// Clean up
+		_ = dynamodbkit.DeleteItem(ctx, "test_users_with_sort", "user_id", testUser.UserID,
+			dynamodbkit.WithDeleteItemSortKey("timestamp", testUser.Timestamp))
 	})
 }

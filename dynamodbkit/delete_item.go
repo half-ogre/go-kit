@@ -11,7 +11,7 @@ import (
 	"github.com/half-ogre/go-kit/kit"
 )
 
-func DeleteItem[TPartitionKey string | int](ctx context.Context, tableName string, partitionKey string, partitionKeyValue TPartitionKey, options ...DeleteItemInputOption) error {
+func DeleteItem[TPartitionKey string | int](ctx context.Context, tableName string, partitionKey string, partitionKeyValue TPartitionKey, options ...DeleteItemOption) error {
 	db, err := newDynamoDB(ctx)
 	if err != nil {
 		return kit.WrapError(err, "error creating DynamoDB client")
@@ -58,16 +58,16 @@ func DeleteItem[TPartitionKey string | int](ctx context.Context, tableName strin
 	return nil
 }
 
-type DeleteItemInputOption func(*dynamodb.DeleteItemInput) error
+type DeleteItemOption func(*dynamodb.DeleteItemInput) error
 
-func WithDeleteItemReturnValues(returnValues types.ReturnValue) DeleteItemInputOption {
+func WithDeleteItemReturnValues(returnValues types.ReturnValue) DeleteItemOption {
 	return func(input *dynamodb.DeleteItemInput) error {
 		input.ReturnValues = returnValues
 		return nil
 	}
 }
 
-func WithDeleteItemSortKey[TSortKey string | int](sortKey string, sortKeyValue TSortKey) DeleteItemInputOption {
+func WithDeleteItemSortKey[TSortKey string | int](sortKey string, sortKeyValue TSortKey) DeleteItemOption {
 	return func(input *dynamodb.DeleteItemInput) error {
 		sortKeyAttributeValue, err := getKeyAttributeValue(sortKeyValue)
 		if err != nil {
@@ -80,7 +80,7 @@ func WithDeleteItemSortKey[TSortKey string | int](sortKey string, sortKeyValue T
 	}
 }
 
-func WithDeleteItemTableNameSuffix(suffix string) DeleteItemInputOption {
+func WithDeleteItemTableNameSuffix(suffix string) DeleteItemOption {
 	return func(input *dynamodb.DeleteItemInput) error {
 		// Always create a new string to ensure pointer comparison detects change
 		if suffix == "" {
