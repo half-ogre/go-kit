@@ -11,396 +11,242 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestNewRenderer(t *testing.T) {
 	layoutModelFunc := func(c echo.Context, path string, tmpl *template.Template, data interface{}) (interface{}, error) {
 		return data, nil
 	}
+	theTemplatePath := "/templates"
 
-	renderer := NewRenderer("/templates", layoutModelFunc)
+	renderer := NewRenderer(theTemplatePath, layoutModelFunc)
 
-	if renderer.templateFilesPath != "/templates" {
-		t.Errorf("NewRenderer() templateFilesPath = %q, want %q", renderer.templateFilesPath, "/templates")
-	}
-	if renderer.layoutModelFunc == nil {
-		t.Error("NewRenderer() layoutModelFunc is nil")
-	}
-	if renderer.templates == nil {
-		t.Error("NewRenderer() templates map is nil")
-	}
-	if len(renderer.templates) != 0 {
-		t.Errorf("NewRenderer() templates map length = %d, want 0", len(renderer.templates))
-	}
+	assert.Equal(t, theTemplatePath, renderer.templateFilesPath)
+	assert.NotNil(t, renderer.layoutModelFunc)
+	assert.NotNil(t, renderer.templates)
+	assert.Empty(t, renderer.templates)
 }
 
 func TestHasLayoutFile(t *testing.T) {
-	// Create temporary directory structure
 	tmpDir, err := os.MkdirTemp("", "renderer_test_*")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
+	assert.NoError(t, err)
+	t.Cleanup(func() { os.RemoveAll(tmpDir) })
 
-	// Create a directory with layout file
-	withLayoutDir := filepath.Join(tmpDir, "with_layout")
-	err = os.MkdirAll(withLayoutDir, 0755)
-	if err != nil {
-		t.Fatal(err)
-	}
+	t.Run("directory_with_layout_file", func(t *testing.T) {
+		withLayoutDir := filepath.Join(tmpDir, "with_layout")
+		err := os.MkdirAll(withLayoutDir, 0755)
+		assert.NoError(t, err)
+		layoutFile := filepath.Join(withLayoutDir, "_layout.html")
+		err = os.WriteFile(layoutFile, []byte("<html>{{ template \"content\" . }}</html>"), 0644)
+		assert.NoError(t, err)
 
-	layoutFile := filepath.Join(withLayoutDir, "_layout.html")
-	err = os.WriteFile(layoutFile, []byte("<html>{{ template \"content\" . }}</html>"), 0644)
-	if err != nil {
-		t.Fatal(err)
-	}
+		result := hasLayoutFile(withLayoutDir)
 
-	// Create a directory without layout file
-	withoutLayoutDir := filepath.Join(tmpDir, "without_layout")
-	err = os.MkdirAll(withoutLayoutDir, 0755)
-	if err != nil {
-		t.Fatal(err)
-	}
+		assert.True(t, result)
+	})
 
-	tests := []struct {
-		name     string
-		path     string
-		expected bool
-	}{
-		{
-			name:     "directory with layout file",
-			path:     withLayoutDir,
-			expected: true,
-		},
-		{
-			name:     "directory without layout file",
-			path:     withoutLayoutDir,
-			expected: false,
-		},
-		{
-			name:     "non-existent directory",
-			path:     "/non/existent/path",
-			expected: false,
-		},
-	}
+	t.Run("directory_without_layout_file", func(t *testing.T) {
+		withoutLayoutDir := filepath.Join(tmpDir, "without_layout")
+		err := os.MkdirAll(withoutLayoutDir, 0755)
+		assert.NoError(t, err)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := hasLayoutFile(tt.path)
-			if result != tt.expected {
-				t.Errorf("hasLayoutFile(%q) = %v, want %v", tt.path, result, tt.expected)
-			}
-		})
-	}
+		result := hasLayoutFile(withoutLayoutDir)
+
+		assert.False(t, result)
+	})
+
+	t.Run("non-existent_directory", func(t *testing.T) {
+		nonExistentPath := "/non/existent/path"
+
+		result := hasLayoutFile(nonExistentPath)
+
+		assert.False(t, result)
+	})
 }
 
 func TestFindLayoutAndPartials(t *testing.T) {
-	// Create temporary directory structure
 	tmpDir, err := os.MkdirTemp("", "renderer_test_*")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
+	assert.NoError(t, err)
+	t.Cleanup(func() { os.RemoveAll(tmpDir) })
 
-	// Create template structure
 	templateDir := filepath.Join(tmpDir, "templates")
 	err = os.MkdirAll(templateDir, 0755)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 
-	// Create root layout
 	rootLayout := filepath.Join(templateDir, "_layout.html")
 	err = os.WriteFile(rootLayout, []byte("<html>{{ template \"content\" . }}</html>"), 0644)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 
-	// Create root partial
 	rootPartial := filepath.Join(templateDir, "_header.html")
 	err = os.WriteFile(rootPartial, []byte("<header>Header</header>"), 0644)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 
-	// Create subdirectory with partial
 	subDir := filepath.Join(templateDir, "pages")
 	err = os.MkdirAll(subDir, 0755)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 
 	subPartial := filepath.Join(subDir, "_sidebar.html")
 	err = os.WriteFile(subPartial, []byte("<sidebar>Sidebar</sidebar>"), 0644)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 
-	// Create Echo context
 	e := echo.New()
 	e.Use(middleware.Logger())
 	req := e.NewContext(nil, nil)
 
-	tests := []struct {
-		name              string
-		templateFilesPath string
-		dir               string
-		expectedLayout    string
-		expectedPartials  []string
-		expectError       bool
-	}{
-		{
-			name:              "root directory with layout",
-			templateFilesPath: templateDir,
-			dir:               templateDir,
-			expectedLayout:    rootLayout,
-			expectedPartials:  []string{filepath.Join(templateDir, "_header.html")},
-			expectError:       false,
-		},
-		{
-			name:              "subdirectory inherits parent layout",
-			templateFilesPath: templateDir,
-			dir:               subDir,
-			expectedLayout:    rootLayout,
-			expectedPartials:  []string{filepath.Join(templateDir, "_sidebar.html"), filepath.Join(templateDir, "_header.html")},
-			expectError:       false,
-		},
-		{
-			name:              "invalid path outside template directory",
-			templateFilesPath: templateDir,
-			dir:               "/invalid/path",
-			expectedLayout:    "",
-			expectedPartials:  nil,
-			expectError:       true,
-		},
-	}
+	t.Run("root_directory_with_layout", func(t *testing.T) {
+		layout, partials, err := findLayoutAndPartials(req, templateDir, templateDir)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			layout, partials, err := findLayoutAndPartials(req, tt.templateFilesPath, tt.dir)
+		assert.NoError(t, err)
+		assert.Equal(t, rootLayout, layout)
+		assert.Len(t, partials, 1)
+		assert.Contains(t, partials, filepath.Join(templateDir, "_header.html"))
+	})
 
-			if tt.expectError {
-				if err == nil {
-					t.Error("findLayoutAndPartials() expected error but got nil")
-				}
-				return
-			}
+	t.Run("subdirectory_inherits_parent_layout", func(t *testing.T) {
+		layout, partials, err := findLayoutAndPartials(req, templateDir, subDir)
 
-			if err != nil {
-				t.Errorf("findLayoutAndPartials() unexpected error: %v", err)
-				return
-			}
+		assert.NoError(t, err)
+		assert.Equal(t, rootLayout, layout)
+		assert.Len(t, partials, 2)
+		assert.Contains(t, partials, filepath.Join(templateDir, "_sidebar.html"))
+		assert.Contains(t, partials, filepath.Join(templateDir, "_header.html"))
+	})
 
-			if layout != tt.expectedLayout {
-				t.Errorf("findLayoutAndPartials() layout = %q, want %q", layout, tt.expectedLayout)
-			}
+	t.Run("invalid_path_outside_template_directory", func(t *testing.T) {
+		layout, partials, err := findLayoutAndPartials(req, templateDir, "/invalid/path")
 
-			if len(partials) != len(tt.expectedPartials) {
-				t.Errorf("findLayoutAndPartials() partials length = %d, want %d", len(partials), len(tt.expectedPartials))
-			}
-
-			for i, partial := range partials {
-				if i < len(tt.expectedPartials) && partial != tt.expectedPartials[i] {
-					t.Errorf("findLayoutAndPartials() partials[%d] = %q, want %q", i, partial, tt.expectedPartials[i])
-				}
-			}
-		})
-	}
+		assert.Error(t, err)
+		assert.Empty(t, layout)
+		assert.Nil(t, partials)
+	})
 }
 
 func TestRenderer_Render(t *testing.T) {
-	// Create temporary directory structure
 	tmpDir, err := os.MkdirTemp("", "renderer_test_*")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
+	assert.NoError(t, err)
+	t.Cleanup(func() { os.RemoveAll(tmpDir) })
 
-	// Create template files
 	layoutContent := `{{ define "layout" }}<html><body>{{ template "content" . }}</body></html>{{ end }}`
 	templateContent := `{{ define "content" }}<h1>{{ .Title }}</h1><p>{{ .Message }}</p>{{ end }}`
 
 	layoutFile := filepath.Join(tmpDir, "_layout.html")
 	err = os.WriteFile(layoutFile, []byte(layoutContent), 0644)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 
 	templateFile := filepath.Join(tmpDir, "test.html")
 	err = os.WriteFile(templateFile, []byte(templateContent), 0644)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 
-	tests := []struct {
-		name            string
-		path            string
-		data            interface{}
-		layoutModelFunc LayoutModelFunc
-		expectError     bool
-		expectedContent string
-	}{
-		{
-			name: "successful render",
-			path: "test",
-			data: map[string]string{"Title": "Test Title", "Message": "Test Message"},
-			layoutModelFunc: func(c echo.Context, path string, tmpl *template.Template, data interface{}) (interface{}, error) {
-				return data, nil
-			},
-			expectError:     false,
-			expectedContent: "<html><body><h1>Test Title</h1><p>Test Message</p></body></html>",
-		},
-		{
-			name: "layout model func error",
-			path: "test",
-			data: map[string]string{"Title": "Test Title", "Message": "Test Message"},
-			layoutModelFunc: func(c echo.Context, path string, tmpl *template.Template, data interface{}) (interface{}, error) {
-				return nil, errors.New("layout model error")
-			},
-			expectError:     true,
-			expectedContent: "",
-		},
-		{
-			name: "non-existent template",
-			path: "nonexistent",
-			data: map[string]string{"Title": "Test Title", "Message": "Test Message"},
-			layoutModelFunc: func(c echo.Context, path string, tmpl *template.Template, data interface{}) (interface{}, error) {
-				return data, nil
-			},
-			expectError:     true,
-			expectedContent: "",
-		},
-	}
+	e := echo.New()
+	e.Use(middleware.Logger())
+	req := e.NewContext(nil, nil)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Create Echo context
-			e := echo.New()
-			e.Use(middleware.Logger())
-			req := e.NewContext(nil, nil)
+	t.Run("successful_render", func(t *testing.T) {
+		theData := map[string]string{"Title": "Test Title", "Message": "Test Message"}
+		layoutModelFunc := func(c echo.Context, path string, tmpl *template.Template, data interface{}) (interface{}, error) {
+			return data, nil
+		}
+		renderer := NewRenderer(tmpDir, layoutModelFunc)
 
-			// Create renderer
-			renderer := NewRenderer(tmpDir, tt.layoutModelFunc)
+		var buf bytes.Buffer
+		err := renderer.Render(&buf, "test", theData, req)
 
-			// Render template
-			var buf bytes.Buffer
-			err := renderer.Render(&buf, tt.path, tt.data, req)
+		assert.NoError(t, err)
+		result := strings.TrimSpace(buf.String())
+		assert.Equal(t, "<html><body><h1>Test Title</h1><p>Test Message</p></body></html>", result)
+	})
 
-			if tt.expectError {
-				if err == nil {
-					t.Error("Render() expected error but got nil")
-				}
-				return
-			}
+	t.Run("layout_model_func_error", func(t *testing.T) {
+		theData := map[string]string{"Title": "Test Title", "Message": "Test Message"}
+		layoutModelFunc := func(c echo.Context, path string, tmpl *template.Template, data interface{}) (interface{}, error) {
+			return nil, errors.New("layout model error")
+		}
+		renderer := NewRenderer(tmpDir, layoutModelFunc)
 
-			if err != nil {
-				t.Errorf("Render() unexpected error: %v", err)
-				return
-			}
+		var buf bytes.Buffer
+		err := renderer.Render(&buf, "test", theData, req)
 
-			result := strings.TrimSpace(buf.String())
-			if result != tt.expectedContent {
-				t.Errorf("Render() content = %q, want %q", result, tt.expectedContent)
-			}
-		})
-	}
+		assert.Error(t, err)
+	})
+
+	t.Run("non-existent_template", func(t *testing.T) {
+		theData := map[string]string{"Title": "Test Title", "Message": "Test Message"}
+		layoutModelFunc := func(c echo.Context, path string, tmpl *template.Template, data interface{}) (interface{}, error) {
+			return data, nil
+		}
+		renderer := NewRenderer(tmpDir, layoutModelFunc)
+
+		var buf bytes.Buffer
+		err := renderer.Render(&buf, "nonexistent", theData, req)
+
+		assert.Error(t, err)
+	})
 }
 
 func TestRenderer_RenderCaching(t *testing.T) {
-	// Create temporary directory structure
 	tmpDir, err := os.MkdirTemp("", "renderer_test_*")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
+	assert.NoError(t, err)
+	t.Cleanup(func() { os.RemoveAll(tmpDir) })
 
-	// Create template files
 	layoutContent := `{{ define "layout" }}<html><body>{{ template "content" . }}</body></html>{{ end }}`
 	templateContent := `{{ define "content" }}<h1>{{ .Title }}</h1>{{ end }}`
 
 	layoutFile := filepath.Join(tmpDir, "_layout.html")
 	err = os.WriteFile(layoutFile, []byte(layoutContent), 0644)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 
 	templateFile := filepath.Join(tmpDir, "cached.html")
 	err = os.WriteFile(templateFile, []byte(templateContent), 0644)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 
 	layoutModelFunc := func(c echo.Context, path string, tmpl *template.Template, data interface{}) (interface{}, error) {
 		return data, nil
 	}
 
-	// Test with debug mode off (caching enabled)
-	t.Run("caching enabled in production mode", func(t *testing.T) {
+	t.Run("caching_enabled_in_production_mode", func(t *testing.T) {
 		e := echo.New()
-		e.Debug = false // Production mode
+		e.Debug = false
 		e.Use(middleware.Logger())
 		req := e.NewContext(nil, nil)
-
 		renderer := NewRenderer(tmpDir, layoutModelFunc)
-		data := map[string]string{"Title": "Cached Test"}
+		theData := map[string]string{"Title": "Cached Test"}
 
-		// First render - should cache template
 		var buf1 bytes.Buffer
-		err := renderer.Render(&buf1, "cached", data, req)
-		if err != nil {
-			t.Fatalf("First render error: %v", err)
-		}
+		err := renderer.Render(&buf1, "cached", theData, req)
+		assert.NoError(t, err)
 
-		// Check that template is cached
-		if _, exists := renderer.templates["cached"]; !exists {
-			t.Error("Template should be cached in production mode")
-		}
+		_, exists := renderer.templates["cached"]
+		assert.True(t, exists, "Template should be cached in production mode")
 
-		// Second render - should use cached template
 		var buf2 bytes.Buffer
-		err = renderer.Render(&buf2, "cached", data, req)
-		if err != nil {
-			t.Fatalf("Second render error: %v", err)
-		}
-
-		if buf1.String() != buf2.String() {
-			t.Error("Cached render should produce same output")
-		}
+		err = renderer.Render(&buf2, "cached", theData, req)
+		assert.NoError(t, err)
+		assert.Equal(t, buf1.String(), buf2.String())
 	})
 
-	// Test with debug mode on (caching disabled)
-	t.Run("caching disabled in debug mode", func(t *testing.T) {
+	t.Run("caching_disabled_in_debug_mode", func(t *testing.T) {
 		e := echo.New()
-		e.Debug = true // Debug mode
+		e.Debug = true
 		e.Use(middleware.Logger())
 		req := e.NewContext(nil, nil)
-
 		renderer := NewRenderer(tmpDir, layoutModelFunc)
-		data := map[string]string{"Title": "Debug Test"}
+		theData := map[string]string{"Title": "Debug Test"}
 
-		// Render in debug mode
 		var buf bytes.Buffer
-		err := renderer.Render(&buf, "cached", data, req)
-		if err != nil {
-			t.Fatalf("Debug render error: %v", err)
-		}
+		err := renderer.Render(&buf, "cached", theData, req)
+		assert.NoError(t, err)
 
-		// Check that template is not cached in debug mode
-		if _, exists := renderer.templates["cached"]; exists {
-			t.Error("Template should not be cached in debug mode")
-		}
+		_, exists := renderer.templates["cached"]
+		assert.False(t, exists, "Template should not be cached in debug mode")
 	})
 }
 
 func TestRenderer_RenderWithPartials(t *testing.T) {
-	// Create temporary directory structure
 	tmpDir, err := os.MkdirTemp("", "renderer_test_*")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
+	assert.NoError(t, err)
+	t.Cleanup(func() { os.RemoveAll(tmpDir) })
 
-	// Create template files with partials
 	layoutContent := `{{ define "layout" }}<html><body>{{ template "_header" }}{{ template "content" . }}{{ template "_footer" }}</body></html>{{ end }}`
 	templateContent := `{{ define "content" }}<h1>{{ .Title }}</h1>{{ end }}`
 	headerContent := `{{ define "_header" }}<header>Site Header</header>{{ end }}`
@@ -408,50 +254,34 @@ func TestRenderer_RenderWithPartials(t *testing.T) {
 
 	layoutFile := filepath.Join(tmpDir, "_layout.html")
 	err = os.WriteFile(layoutFile, []byte(layoutContent), 0644)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 
 	templateFile := filepath.Join(tmpDir, "withpartials.html")
 	err = os.WriteFile(templateFile, []byte(templateContent), 0644)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 
 	headerFile := filepath.Join(tmpDir, "_header.html")
 	err = os.WriteFile(headerFile, []byte(headerContent), 0644)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 
 	footerFile := filepath.Join(tmpDir, "_footer.html")
 	err = os.WriteFile(footerFile, []byte(footerContent), 0644)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 
-	// Create Echo context
 	e := echo.New()
 	e.Use(middleware.Logger())
 	req := e.NewContext(nil, nil)
 
-	// Create renderer
 	layoutModelFunc := func(c echo.Context, path string, tmpl *template.Template, data interface{}) (interface{}, error) {
 		return data, nil
 	}
 	renderer := NewRenderer(tmpDir, layoutModelFunc)
+	theData := map[string]string{"Title": "Partials Test"}
 
-	// Render template with partials
-	data := map[string]string{"Title": "Partials Test"}
 	var buf bytes.Buffer
-	err = renderer.Render(&buf, "withpartials", data, req)
-	if err != nil {
-		t.Fatalf("Render with partials error: %v", err)
-	}
+	err = renderer.Render(&buf, "withpartials", theData, req)
 
-	expected := "<html><body><header>Site Header</header><h1>Partials Test</h1><footer>Site Footer</footer></body></html>"
+	assert.NoError(t, err)
 	result := strings.TrimSpace(buf.String())
-	if result != expected {
-		t.Errorf("Render with partials = %q, want %q", result, expected)
-	}
+	assert.Equal(t, "<html><body><header>Site Header</header><h1>Partials Test</h1><footer>Site Footer</footer></body></html>", result)
 }
