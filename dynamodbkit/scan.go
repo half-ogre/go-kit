@@ -117,6 +117,13 @@ func WithScanExclusiveStartKey(exclusiveStartKey string) ScanOption {
 	}
 }
 
+func WithScanIndexName(indexName string) ScanOption {
+	return func(input *dynamodb.ScanInput) error {
+		input.IndexName = aws.String(indexName)
+		return nil
+	}
+}
+
 func WithScanLimit(limit int64) ScanOption {
 	return func(input *dynamodb.ScanInput) error {
 		if limit < 0 {

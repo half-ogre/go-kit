@@ -373,3 +373,39 @@ func TestWithScanTableNameSuffix(t *testing.T) {
 		assert.Equal(t, "theTableName-existingSuffix-newSuffix", *input.TableName)
 	})
 }
+
+func TestWithScanIndexName(t *testing.T) {
+	t.Run("sets_index_name_when_given_string_value", func(t *testing.T) {
+		input := &dynamodb.ScanInput{}
+		option := WithScanIndexName("theIndexName")
+
+		err := option(input)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, input.IndexName)
+		assert.Equal(t, "theIndexName", *input.IndexName)
+	})
+
+	t.Run("sets_index_name_when_given_empty_string", func(t *testing.T) {
+		input := &dynamodb.ScanInput{}
+		option := WithScanIndexName("")
+
+		err := option(input)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, input.IndexName)
+		assert.Equal(t, "", *input.IndexName)
+	})
+
+	t.Run("overwrites_existing_index_name", func(t *testing.T) {
+		input := &dynamodb.ScanInput{
+			IndexName: aws.String("existingIndex"),
+		}
+		option := WithScanIndexName("newIndexName")
+
+		err := option(input)
+
+		assert.NoError(t, err)
+		assert.Equal(t, "newIndexName", *input.IndexName)
+	})
+}

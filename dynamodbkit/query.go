@@ -134,6 +134,13 @@ func WithQueryExclusiveStartKey(exclusiveStartKey string) QueryOption {
 	}
 }
 
+func WithQueryIndexName(indexName string) QueryOption {
+	return func(input *dynamodb.QueryInput) error {
+		input.IndexName = aws.String(indexName)
+		return nil
+	}
+}
+
 func WithQueryLimit(limit int64) QueryOption {
 	return func(input *dynamodb.QueryInput) error {
 		if limit < 0 {

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -389,5 +390,82 @@ func TestScanTableNameSuffixAcceptance(t *testing.T) {
 		assert.Nil(t, result)
 		// The error should be a ResourceNotFoundException from DynamoDB
 		assert.Contains(t, err.Error(), "ResourceNotFoundException")
+	})
+}
+
+func TestScanIndexNameAcceptance(t *testing.T) {
+	// Skip if not running against local DynamoDB
+	if os.Getenv("AWS_ENDPOINT_URL") == "" {
+		t.Skip("Skipping acceptance test - AWS_ENDPOINT_URL not set")
+	}
+
+	ctx := context.Background()
+
+	t.Run("scan_with_nonexistent_index_returns_error", func(t *testing.T) {
+		// Clear table and add test data
+		clearTestTable(t, ctx)
+		testUser := TestUser{ID: "index-scan-user", Name: "IndexScanUser", Email: "indexscan@example.com"}
+		err := dynamodbkit.PutItem(ctx, "test_users", testUser)
+		require.NoError(t, err)
+
+		// Try to scan using a non-existent index
+		result, err := dynamodbkit.Scan[TestUser](ctx, "test_users",
+			dynamodbkit.WithScanIndexName("NonExistentIndex"))
+
+		// Should get an error about the index not existing
+		assert.Error(t, err)
+		assert.Nil(t, result)
+		// The error should indicate the index doesn't exist
+		assert.Contains(t, err.Error(), "ValidationException")
+
+		// Clean up
+		_ = dynamodbkit.DeleteItem(ctx, "test_users", "id", testUser.ID)
+	})
+
+	t.Run("scan_with_empty_index_name_returns_error", func(t *testing.T) {
+		// Clear table and add test data
+		clearTestTable(t, ctx)
+		testUser := TestUser{ID: "empty-index-scan", Name: "EmptyIndexScan", Email: "emptyindexscan@example.com"}
+		err := dynamodbkit.PutItem(ctx, "test_users", testUser)
+		require.NoError(t, err)
+
+		// Try to scan using an empty index name
+		result, err := dynamodbkit.Scan[TestUser](ctx, "test_users",
+			dynamodbkit.WithScanIndexName(""))
+
+		// Should get an error about the index not existing or being invalid
+		assert.Error(t, err)
+		assert.Nil(t, result)
+		// Could be ResourceNotFoundException or ValidationException depending on DynamoDB behavior
+		assert.True(t,
+			strings.Contains(err.Error(), "ResourceNotFoundException") ||
+				strings.Contains(err.Error(), "ValidationException"),
+			"Expected ResourceNotFoundException or ValidationException, got: %s", err.Error())
+
+		// Clean up
+		_ = dynamodbkit.DeleteItem(ctx, "test_users", "id", testUser.ID)
+	})
+
+	t.Run("scan_with_index_name_option_applied_correctly", func(t *testing.T) {
+		// This test verifies that the index name option is applied by checking
+		// that we get a specific error about the index not existing
+		clearTestTable(t, ctx)
+
+		// Add test data
+		testUser := TestUser{ID: "index-scan-option-test", Name: "IndexScanOptionTest", Email: "indexscanoption@example.com"}
+		err := dynamodbkit.PutItem(ctx, "test_users", testUser)
+		require.NoError(t, err)
+
+		// Try to scan using a non-existent index
+		result, err := dynamodbkit.Scan[TestUser](ctx, "test_users",
+			dynamodbkit.WithScanIndexName("test-scan-gsi-index"))
+
+		// Should get an error about the specific index not existing
+		assert.Error(t, err)
+		assert.Nil(t, result)
+		assert.Contains(t, err.Error(), "ValidationException")
+
+		// Clean up
+		_ = dynamodbkit.DeleteItem(ctx, "test_users", "id", testUser.ID)
 	})
 }
