@@ -16,11 +16,6 @@ jobs:
         image: amazon/dynamodb-local:latest
         ports:
           - 8000:8000
-        options: >-
-          --health-cmd "curl -f http://localhost:8000/ || exit 1"
-          --health-interval 30s
-          --health-timeout 10s
-          --health-retries 5
 
     steps:
     - uses: actions/checkout@v4
@@ -43,7 +38,7 @@ jobs:
       run: |
         echo "Waiting for DynamoDB to be ready..."
         for i in {1..30}; do
-          if curl -f http://localhost:8000/ > /dev/null 2>&1; then
+          if curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/ | grep -q "400\|404"; then
             echo "DynamoDB is ready!"
             break
           fi
