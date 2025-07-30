@@ -2,6 +2,7 @@ package dynamodbkit
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
@@ -64,6 +65,13 @@ func WithGetItemSortKey[TSortKey string | int](sortKey string, sortKeyValue TSor
 
 		input.Key[sortKey] = sortKeyAttributeValue
 
+		return nil
+	}
+}
+
+func WithGetItemTableNameSuffix(suffix string) GetItemInputOption {
+	return func(input *dynamodb.GetItemInput) error {
+		input.TableName = aws.String(fmt.Sprintf("%s-%s", *input.TableName, suffix))
 		return nil
 	}
 }

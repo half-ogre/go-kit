@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
@@ -115,6 +116,13 @@ func WithScanLimit(limit int64) ScanOption {
 			return kit.WrapError(nil, "limit exceeds maximum allowed value, got %d", limit)
 		}
 		input.Limit = aws.Int32(int32(limit))
+		return nil
+	}
+}
+
+func WithScanTableNameSuffix(suffix string) ScanOption {
+	return func(input *dynamodb.ScanInput) error {
+		input.TableName = aws.String(fmt.Sprintf("%s-%s", *input.TableName, suffix))
 		return nil
 	}
 }

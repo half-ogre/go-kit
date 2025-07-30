@@ -2,6 +2,7 @@ package dynamodbkit
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -65,6 +66,13 @@ func WithDeleteItemSortKey[TSortKey string | int](sortKey string, sortKeyValue T
 
 		input.Key[sortKey] = sortKeyAttributeValue
 
+		return nil
+	}
+}
+
+func WithDeleteItemTableNameSuffix(suffix string) DeleteItemInputOption {
+	return func(input *dynamodb.DeleteItemInput) error {
+		input.TableName = aws.String(fmt.Sprintf("%s-%s", *input.TableName, suffix))
 		return nil
 	}
 }

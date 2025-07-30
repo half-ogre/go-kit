@@ -2,6 +2,7 @@ package dynamodbkit
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -56,6 +57,13 @@ func WithPutItemCondition(conditionExpression string) PutItemInputOption {
 func WithPutItemExpressionAttributeValues(expressionAttributeValues map[string]types.AttributeValue) PutItemInputOption {
 	return func(input *dynamodb.PutItemInput) error {
 		input.ExpressionAttributeValues = expressionAttributeValues
+		return nil
+	}
+}
+
+func WithPutItemTableNameSuffix(suffix string) PutItemInputOption {
+	return func(input *dynamodb.PutItemInput) error {
+		input.TableName = aws.String(fmt.Sprintf("%s-%s", *input.TableName, suffix))
 		return nil
 	}
 }

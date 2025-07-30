@@ -711,3 +711,25 @@ func TestQueryPaginationAcceptance(t *testing.T) {
 		}
 	})
 }
+
+func TestQueryTableNameSuffixAcceptance(t *testing.T) {
+	// Skip if not running against local DynamoDB
+	if os.Getenv("AWS_ENDPOINT_URL") == "" {
+		t.Skip("Skipping acceptance test - AWS_ENDPOINT_URL not set")
+	}
+
+	ctx := context.Background()
+
+	t.Run("query_with_table_name_suffix_modifies_table_name", func(t *testing.T) {
+		// This test uses a table that doesn't exist (since suffix would make it invalid)
+		// We expect this to fail with the modified table name
+		result, err := dynamodbkit.Query[TestUser](ctx, "test_users", "id", "test-user",
+			dynamodbkit.WithQueryTableNameSuffix("nonexistent"))
+
+		// Should get an error about the table not existing
+		assert.Error(t, err)
+		assert.Nil(t, result)
+		// The error should be a ResourceNotFoundException from DynamoDB
+		assert.Contains(t, err.Error(), "ResourceNotFoundException")
+	})
+}

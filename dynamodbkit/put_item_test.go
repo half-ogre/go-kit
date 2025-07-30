@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/stretchr/testify/assert"
@@ -188,5 +189,31 @@ func TestWithPutItemExpressionAttributeValues(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, values, input.ExpressionAttributeValues)
 		assert.Len(t, input.ExpressionAttributeValues, 0)
+	})
+}
+
+func TestWithPutItemTableNameSuffix(t *testing.T) {
+	t.Run("appends_suffix_to_table_name", func(t *testing.T) {
+		input := &dynamodb.PutItemInput{
+			TableName: aws.String("theTableName"),
+		}
+		option := WithPutItemTableNameSuffix("theSuffix")
+
+		err := option(input)
+
+		assert.NoError(t, err)
+		assert.Equal(t, "theTableName-theSuffix", *input.TableName)
+	})
+
+	t.Run("appends_suffix_to_table_name_with_existing_suffix", func(t *testing.T) {
+		input := &dynamodb.PutItemInput{
+			TableName: aws.String("theTableName-existingSuffix"),
+		}
+		option := WithPutItemTableNameSuffix("newSuffix")
+
+		err := option(input)
+
+		assert.NoError(t, err)
+		assert.Equal(t, "theTableName-existingSuffix-newSuffix", *input.TableName)
 	})
 }

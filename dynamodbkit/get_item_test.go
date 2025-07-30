@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/stretchr/testify/assert"
@@ -219,5 +220,31 @@ func TestWithGetItemSortKey(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Contains(t, input.Key, "score")
 		assert.Equal(t, &types.AttributeValueMemberN{Value: "98765"}, input.Key["score"])
+	})
+}
+
+func TestWithGetItemTableNameSuffix(t *testing.T) {
+	t.Run("appends_suffix_to_table_name", func(t *testing.T) {
+		input := &dynamodb.GetItemInput{
+			TableName: aws.String("theTableName"),
+		}
+		option := WithGetItemTableNameSuffix("theSuffix")
+
+		err := option(input)
+
+		assert.NoError(t, err)
+		assert.Equal(t, "theTableName-theSuffix", *input.TableName)
+	})
+
+	t.Run("appends_suffix_to_table_name_with_existing_suffix", func(t *testing.T) {
+		input := &dynamodb.GetItemInput{
+			TableName: aws.String("theTableName-existingSuffix"),
+		}
+		option := WithGetItemTableNameSuffix("newSuffix")
+
+		err := option(input)
+
+		assert.NoError(t, err)
+		assert.Equal(t, "theTableName-existingSuffix-newSuffix", *input.TableName)
 	})
 }
