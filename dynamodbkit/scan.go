@@ -30,10 +30,20 @@ func Scan[TItem any](ctx context.Context, tableName string, options ...ScanOptio
 		TableName: aws.String(tableName),
 	}
 
+	originalTableNamePtr := scanInput.TableName
+
 	for _, option := range options {
 		err := option(scanInput)
 		if err != nil {
 			return nil, kit.WrapError(err, "error processing option")
+		}
+	}
+
+	// Apply global table name suffix if table name pointer wasn't changed by options
+	if scanInput.TableName == originalTableNamePtr {
+		globalSuffix := getTableNameSuffix()
+		if globalSuffix != "" {
+			scanInput.TableName = aws.String(fmt.Sprintf("%s-%s", *scanInput.TableName, globalSuffix))
 		}
 	}
 
@@ -122,7 +132,14 @@ func WithScanLimit(limit int64) ScanOption {
 
 func WithScanTableNameSuffix(suffix string) ScanOption {
 	return func(input *dynamodb.ScanInput) error {
-		input.TableName = aws.String(fmt.Sprintf("%s-%s", *input.TableName, suffix))
+		// Always create a new string to ensure pointer comparison detects change
+		if suffix == "" {
+			// Create new string with same content to mark as modified
+			newTableName := *input.TableName
+			input.TableName = &newTableName
+		} else {
+			input.TableName = aws.String(fmt.Sprintf("%s-%s", *input.TableName, suffix))
+		}
 		return nil
 	}
 }

@@ -29,10 +29,20 @@ func GetItem[TItem any, TPartitionKey string | int](ctx context.Context, tableNa
 		},
 	}
 
+	originalTableNamePtr := getItemInput.TableName
+
 	for _, option := range options {
 		err := option(getItemInput)
 		if err != nil {
 			return nil, kit.WrapError(err, "error processing option")
+		}
+	}
+
+	// Apply global table name suffix if table name pointer wasn't changed by options
+	if getItemInput.TableName == originalTableNamePtr {
+		globalSuffix := getTableNameSuffix()
+		if globalSuffix != "" {
+			getItemInput.TableName = aws.String(fmt.Sprintf("%s-%s", *getItemInput.TableName, globalSuffix))
 		}
 	}
 
@@ -71,7 +81,14 @@ func WithGetItemSortKey[TSortKey string | int](sortKey string, sortKeyValue TSor
 
 func WithGetItemTableNameSuffix(suffix string) GetItemInputOption {
 	return func(input *dynamodb.GetItemInput) error {
-		input.TableName = aws.String(fmt.Sprintf("%s-%s", *input.TableName, suffix))
+		// Always create a new string to ensure pointer comparison detects change
+		if suffix == "" {
+			// Create new string with same content to mark as modified
+			newTableName := *input.TableName
+			input.TableName = &newTableName
+		} else {
+			input.TableName = aws.String(fmt.Sprintf("%s-%s", *input.TableName, suffix))
+		}
 		return nil
 	}
 }

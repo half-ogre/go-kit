@@ -29,10 +29,20 @@ func DeleteItem[TPartitionKey string | int](ctx context.Context, tableName strin
 		},
 	}
 
+	originalTableNamePtr := deleteItemInput.TableName
+
 	for _, option := range options {
 		err := option(deleteItemInput)
 		if err != nil {
 			return kit.WrapError(err, "error processing option")
+		}
+	}
+
+	// Apply global table name suffix if table name pointer wasn't changed by options
+	if deleteItemInput.TableName == originalTableNamePtr {
+		globalSuffix := getTableNameSuffix()
+		if globalSuffix != "" {
+			deleteItemInput.TableName = aws.String(fmt.Sprintf("%s-%s", *deleteItemInput.TableName, globalSuffix))
 		}
 	}
 
@@ -72,7 +82,14 @@ func WithDeleteItemSortKey[TSortKey string | int](sortKey string, sortKeyValue T
 
 func WithDeleteItemTableNameSuffix(suffix string) DeleteItemInputOption {
 	return func(input *dynamodb.DeleteItemInput) error {
-		input.TableName = aws.String(fmt.Sprintf("%s-%s", *input.TableName, suffix))
+		// Always create a new string to ensure pointer comparison detects change
+		if suffix == "" {
+			// Create new string with same content to mark as modified
+			newTableName := *input.TableName
+			input.TableName = &newTableName
+		} else {
+			input.TableName = aws.String(fmt.Sprintf("%s-%s", *input.TableName, suffix))
+		}
 		return nil
 	}
 }

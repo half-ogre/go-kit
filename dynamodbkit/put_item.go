@@ -23,10 +23,20 @@ func PutItem[T any](ctx context.Context, tableName string, item T, options ...Pu
 		TableName: aws.String(tableName),
 	}
 
+	originalTableNamePtr := putItemInput.TableName
+
 	for _, option := range options {
 		err = option(putItemInput)
 		if err != nil {
 			return kit.WrapError(err, "error processing option")
+		}
+	}
+
+	// Apply global table name suffix if table name pointer wasn't changed by options
+	if putItemInput.TableName == originalTableNamePtr {
+		globalSuffix := getTableNameSuffix()
+		if globalSuffix != "" {
+			putItemInput.TableName = aws.String(fmt.Sprintf("%s-%s", *putItemInput.TableName, globalSuffix))
 		}
 	}
 
@@ -63,7 +73,14 @@ func WithPutItemExpressionAttributeValues(expressionAttributeValues map[string]t
 
 func WithPutItemTableNameSuffix(suffix string) PutItemInputOption {
 	return func(input *dynamodb.PutItemInput) error {
-		input.TableName = aws.String(fmt.Sprintf("%s-%s", *input.TableName, suffix))
+		// Always create a new string to ensure pointer comparison detects change
+		if suffix == "" {
+			// Create new string with same content to mark as modified
+			newTableName := *input.TableName
+			input.TableName = &newTableName
+		} else {
+			input.TableName = aws.String(fmt.Sprintf("%s-%s", *input.TableName, suffix))
+		}
 		return nil
 	}
 }

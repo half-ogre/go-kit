@@ -47,10 +47,20 @@ func Query[TItem any, TPartitionKey string | int](ctx context.Context, tableName
 		ExpressionAttributeValues: expr.Values(),
 	}
 
+	originalTableNamePtr := queryInput.TableName
+
 	for _, option := range options {
 		err = option(queryInput)
 		if err != nil {
 			return nil, kit.WrapError(err, "error processing option")
+		}
+	}
+
+	// Apply global table name suffix if table name pointer wasn't changed by options
+	if queryInput.TableName == originalTableNamePtr {
+		globalSuffix := getTableNameSuffix()
+		if globalSuffix != "" {
+			queryInput.TableName = aws.String(fmt.Sprintf("%s-%s", *queryInput.TableName, globalSuffix))
 		}
 	}
 
@@ -146,7 +156,14 @@ func WithQueryProjectionExpression(projectionExpression string) QueryOption {
 
 func WithQueryTableNameSuffix(suffix string) QueryOption {
 	return func(input *dynamodb.QueryInput) error {
-		input.TableName = aws.String(fmt.Sprintf("%s-%s", *input.TableName, suffix))
+		// Always create a new string to ensure pointer comparison detects change
+		if suffix == "" {
+			// Create new string with same content to mark as modified
+			newTableName := *input.TableName
+			input.TableName = &newTableName
+		} else {
+			input.TableName = aws.String(fmt.Sprintf("%s-%s", *input.TableName, suffix))
+		}
 		return nil
 	}
 }
