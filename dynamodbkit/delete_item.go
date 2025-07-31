@@ -12,7 +12,13 @@ import (
 )
 
 func DeleteItem[TPartitionKey string | int](ctx context.Context, tableName string, partitionKey string, partitionKeyValue TPartitionKey, options ...DeleteItemOption) error {
-	db, err := newDynamoDB(ctx)
+	// Check if consumer fake is set
+	fake := getFakeDynamoDB()
+	if fake != nil {
+		return fake.DeleteItem(ctx, tableName, partitionKey, partitionKeyValue, options...)
+	}
+
+	db, err := newDynamoDBSDK(ctx)
 	if err != nil {
 		return kit.WrapError(err, "error creating DynamoDB client")
 	}

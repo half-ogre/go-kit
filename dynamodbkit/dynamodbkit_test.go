@@ -15,14 +15,14 @@ func TestUseTableNameSuffix(t *testing.T) {
 		t.Cleanup(func() { UseTableNameSuffix("") })
 
 		actualTableName := ""
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			DeleteItemFake: func(ctx context.Context, params *dynamodb.DeleteItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error) {
 				actualTableName = *params.TableName
 				return &dynamodb.DeleteItemOutput{}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		err := DeleteItem(context.Background(), "theTableName", "id", "aUserID")
 
@@ -35,14 +35,14 @@ func TestUseTableNameSuffix(t *testing.T) {
 		t.Cleanup(func() { UseTableNameSuffix("") })
 
 		actualTableName := ""
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			DeleteItemFake: func(ctx context.Context, params *dynamodb.DeleteItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error) {
 				actualTableName = *params.TableName
 				return &dynamodb.DeleteItemOutput{}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		err := DeleteItem(context.Background(), "theTableName", "id", "aUserID",
 			WithDeleteItemTableNameSuffix("theOptionSuffix"))
@@ -56,14 +56,14 @@ func TestUseTableNameSuffix(t *testing.T) {
 		t.Cleanup(func() { UseTableNameSuffix("") })
 
 		actualTableName := ""
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			DeleteItemFake: func(ctx context.Context, params *dynamodb.DeleteItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error) {
 				actualTableName = *params.TableName
 				return &dynamodb.DeleteItemOutput{}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		err := DeleteItem(context.Background(), "theTableName", "id", "aUserID")
 
@@ -76,14 +76,14 @@ func TestUseTableNameSuffix(t *testing.T) {
 		t.Cleanup(func() { UseTableNameSuffix("") })
 
 		actualTableName := ""
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			GetItemFake: func(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
 				actualTableName = *params.TableName
 				return &dynamodb.GetItemOutput{}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := GetItem[TestUser](context.Background(), "theTableName", "id", "aUserID")
 
@@ -97,14 +97,14 @@ func TestUseTableNameSuffix(t *testing.T) {
 		t.Cleanup(func() { UseTableNameSuffix("") })
 
 		actualTableName := ""
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			GetItemFake: func(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
 				actualTableName = *params.TableName
 				return &dynamodb.GetItemOutput{}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := GetItem[TestUser](context.Background(), "theTableName", "id", "aUserID",
 			WithGetItemTableNameSuffix("theOptionSuffix"))
@@ -119,14 +119,14 @@ func TestUseTableNameSuffix(t *testing.T) {
 		t.Cleanup(func() { UseTableNameSuffix("") })
 
 		actualTableName := ""
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			PutItemFake: func(ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
 				actualTableName = *params.TableName
 				return &dynamodb.PutItemOutput{}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		testUser := TestUser{ID: "0", Name: "A Name", Email: "anEmail@anAddress.com"}
 		err := PutItem(context.Background(), "theTableName", testUser)
@@ -140,14 +140,14 @@ func TestUseTableNameSuffix(t *testing.T) {
 		t.Cleanup(func() { UseTableNameSuffix("") })
 
 		actualTableName := ""
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			PutItemFake: func(ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
 				actualTableName = *params.TableName
 				return &dynamodb.PutItemOutput{}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		testUser := TestUser{ID: "0", Name: "A Name", Email: "anEmail@anAddress.com"}
 		err := PutItem(context.Background(), "theTableName", testUser,
@@ -162,7 +162,7 @@ func TestUseTableNameSuffix(t *testing.T) {
 		t.Cleanup(func() { UseTableNameSuffix("") })
 
 		actualTableName := ""
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			QueryFake: func(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
 				actualTableName = *params.TableName
 				return &dynamodb.QueryOutput{
@@ -170,8 +170,8 @@ func TestUseTableNameSuffix(t *testing.T) {
 				}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := Query[TestUser](context.Background(), "theTableName", "id", "aUserID")
 
@@ -185,7 +185,7 @@ func TestUseTableNameSuffix(t *testing.T) {
 		t.Cleanup(func() { UseTableNameSuffix("") })
 
 		actualTableName := ""
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			QueryFake: func(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
 				actualTableName = *params.TableName
 				return &dynamodb.QueryOutput{
@@ -193,8 +193,8 @@ func TestUseTableNameSuffix(t *testing.T) {
 				}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := Query[TestUser](context.Background(), "theTableName", "id", "aUserID",
 			WithQueryTableNameSuffix("theOptionSuffix"))
@@ -209,7 +209,7 @@ func TestUseTableNameSuffix(t *testing.T) {
 		t.Cleanup(func() { UseTableNameSuffix("") })
 
 		actualTableName := ""
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			ScanFake: func(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
 				actualTableName = *params.TableName
 				return &dynamodb.ScanOutput{
@@ -217,8 +217,8 @@ func TestUseTableNameSuffix(t *testing.T) {
 				}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := Scan[TestUser](context.Background(), "theTableName")
 
@@ -232,7 +232,7 @@ func TestUseTableNameSuffix(t *testing.T) {
 		t.Cleanup(func() { UseTableNameSuffix("") })
 
 		actualTableName := ""
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			ScanFake: func(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
 				actualTableName = *params.TableName
 				return &dynamodb.ScanOutput{
@@ -240,8 +240,8 @@ func TestUseTableNameSuffix(t *testing.T) {
 				}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := Scan[TestUser](context.Background(), "theTableName",
 			WithScanTableNameSuffix("theOptionSuffix"))
@@ -256,7 +256,7 @@ func TestUseTableNameSuffix(t *testing.T) {
 		t.Cleanup(func() { UseTableNameSuffix("") })
 
 		var tableNames []string
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			DeleteItemFake: func(ctx context.Context, params *dynamodb.DeleteItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error) {
 				tableNames = append(tableNames, *params.TableName)
 				return &dynamodb.DeleteItemOutput{}, nil
@@ -266,8 +266,8 @@ func TestUseTableNameSuffix(t *testing.T) {
 				return &dynamodb.GetItemOutput{}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		err1 := DeleteItem(context.Background(), "users", "id", "user1")
 		result, err2 := GetItem[TestUser](context.Background(), "posts", "id", "post1")
@@ -280,14 +280,14 @@ func TestUseTableNameSuffix(t *testing.T) {
 
 	t.Run("changing_global_suffix_affects_subsequent_operations", func(t *testing.T) {
 		var tableNames []string
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			DeleteItemFake: func(ctx context.Context, params *dynamodb.DeleteItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error) {
 				tableNames = append(tableNames, *params.TableName)
 				return &dynamodb.DeleteItemOutput{}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		UseTableNameSuffix("firstSuffix")
 		err1 := DeleteItem(context.Background(), "users", "id", "user1")

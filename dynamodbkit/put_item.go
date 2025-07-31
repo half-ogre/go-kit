@@ -13,6 +13,12 @@ import (
 )
 
 func PutItem[T any](ctx context.Context, tableName string, item T, options ...PutItemOption) error {
+	// Check if consumer fake is set
+	fake := getFakeDynamoDB()
+	if fake != nil {
+		return fake.PutItem(ctx, tableName, item, options...)
+	}
+
 	i, err := attributevalue.MarshalMap(item)
 	if err != nil {
 		return err
@@ -40,7 +46,7 @@ func PutItem[T any](ctx context.Context, tableName string, item T, options ...Pu
 		}
 	}
 
-	db, err := newDynamoDB(ctx)
+	db, err := newDynamoDBSDK(ctx)
 	if err != nil {
 		return kit.WrapError(err, "error creating DynamoDB client")
 	}

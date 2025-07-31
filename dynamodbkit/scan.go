@@ -21,7 +21,22 @@ func Scan[TItem any](ctx context.Context, tableName string, options ...ScanOptio
 		return nil, kit.WrapError(nil, "table name cannot be empty")
 	}
 
-	db, err := newDynamoDB(ctx)
+	// Check if consumer fake is set
+	fake := getFakeDynamoDB()
+	if fake != nil {
+		result, err := fake.Scan(ctx, tableName, options...)
+		if err != nil {
+			return nil, err
+		}
+		// Type assert the result to the expected type
+		scanOutput, ok := result.(*ScanOutput[TItem])
+		if !ok {
+			return nil, kit.WrapError(nil, "fake returned unexpected type for Scan")
+		}
+		return scanOutput, nil
+	}
+
+	db, err := newDynamoDBSDK(ctx)
 	if err != nil {
 		return nil, kit.WrapError(err, "error creating DynamoDB client")
 	}

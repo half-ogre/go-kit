@@ -25,8 +25,8 @@ func TestPutItem(t *testing.T) {
 	})
 
 	t.Run("returns_an_error_when_getting_a_new_dynamodb_connection_returns_an_error", func(t *testing.T) {
-		setFake(func(ctx context.Context) (DynamoDB, error) { return nil, errors.New("the fake error") })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return nil, errors.New("the fake error") })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		item := TestUser{ID: "aUserID", Name: "aUserName", Email: "aUserEmail"}
 
@@ -37,14 +37,14 @@ func TestPutItem(t *testing.T) {
 
 	t.Run("passes_the_table_name_to_put_item", func(t *testing.T) {
 		actualTableName := ""
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			PutItemFake: func(ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
 				actualTableName = *params.TableName
 				return &dynamodb.PutItemOutput{}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		item := TestUser{ID: "aUserID", Name: "aUserName", Email: "aUserEmail"}
 
@@ -56,14 +56,14 @@ func TestPutItem(t *testing.T) {
 
 	t.Run("passes_the_marshalled_item_to_put_item", func(t *testing.T) {
 		var actualItem map[string]types.AttributeValue
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			PutItemFake: func(ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
 				actualItem = params.Item
 				return &dynamodb.PutItemOutput{}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		item := TestUser{ID: "theUserID", Name: "theUserName", Email: "theUserEmail"}
 
@@ -80,13 +80,13 @@ func TestPutItem(t *testing.T) {
 	})
 
 	t.Run("returns_an_error_when_put_item_returns_an_error", func(t *testing.T) {
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			PutItemFake: func(ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
 				return nil, errors.New("the fake error")
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		item := TestUser{ID: "aUserID", Name: "aUserName", Email: "aUserEmail"}
 
@@ -97,14 +97,14 @@ func TestPutItem(t *testing.T) {
 
 	t.Run("applies_put_item_options_correctly", func(t *testing.T) {
 		var actualInput *dynamodb.PutItemInput
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			PutItemFake: func(ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
 				actualInput = params
 				return &dynamodb.PutItemOutput{}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		item := TestUser{ID: "aUserID", Name: "aUserName", Email: "aUserEmail"}
 		expressionValues := map[string]types.AttributeValue{
@@ -122,13 +122,13 @@ func TestPutItem(t *testing.T) {
 	})
 
 	t.Run("succeeds_when_no_errors", func(t *testing.T) {
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			PutItemFake: func(ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
 				return &dynamodb.PutItemOutput{}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		item := TestUser{ID: "aUserID", Name: "aUserName", Email: "aUserEmail"}
 

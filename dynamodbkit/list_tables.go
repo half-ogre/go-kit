@@ -13,7 +13,13 @@ func ListTables(ctx context.Context, options ...ListTablesOption) (*ListTablesOu
 		return nil, kit.WrapError(nil, "context cannot be nil")
 	}
 
-	db, err := newDynamoDB(ctx)
+	// Check if consumer fake is set
+	fake := getFakeDynamoDB()
+	if fake != nil {
+		return fake.ListTables(ctx, options...)
+	}
+
+	db, err := newDynamoDBSDK(ctx)
 	if err != nil {
 		return nil, kit.WrapError(err, "error creating DynamoDB client")
 	}

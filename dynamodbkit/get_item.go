@@ -12,7 +12,22 @@ import (
 )
 
 func GetItem[TItem any, TPartitionKey string | int](ctx context.Context, tableName string, partitionKey string, partitionKeyValue TPartitionKey, options ...GetItemOption) (*TItem, error) {
-	db, err := newDynamoDB(ctx)
+	// Check if consumer fake is set
+	fake := getFakeDynamoDB()
+	if fake != nil {
+		result, err := fake.GetItem(ctx, tableName, partitionKey, partitionKeyValue, options...)
+		if err != nil {
+			return nil, err
+		}
+		// Type assert the result to the expected type
+		item, ok := result.(*TItem)
+		if !ok {
+			return nil, kit.WrapError(nil, "fake returned unexpected type for GetItem")
+		}
+		return item, nil
+	}
+
+	db, err := newDynamoDBSDK(ctx)
 	if err != nil {
 		return nil, kit.WrapError(err, "error creating DynamoDB client")
 	}

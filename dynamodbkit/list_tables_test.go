@@ -19,8 +19,8 @@ func TestListTables(t *testing.T) {
 	})
 
 	t.Run("returns_an_error_when_getting_a_new_dynamodb_connection_returns_an_error", func(t *testing.T) {
-		setFake(func(ctx context.Context) (DynamoDB, error) { return nil, errors.New("the fake error") })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return nil, errors.New("the fake error") })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := ListTables(context.Background())
 
@@ -30,15 +30,15 @@ func TestListTables(t *testing.T) {
 
 	t.Run("returns_the_expected_output_when_no_errors_and_no_last_evaluated_table_name", func(t *testing.T) {
 		tableNames := []string{"theFirstTable", "theSecondTable"}
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			ListTablesFake: func(ctx context.Context, params *dynamodb.ListTablesInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error) {
 				return &dynamodb.ListTablesOutput{
 					TableNames: tableNames,
 				}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := ListTables(context.Background())
 
@@ -51,7 +51,7 @@ func TestListTables(t *testing.T) {
 	t.Run("returns_the_expected_output_when_no_errors_and_has_last_evaluated_table_name", func(t *testing.T) {
 		tableNames := []string{"theFirstTable", "theSecondTable"}
 		lastEvaluatedTableName := "theLastTable"
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			ListTablesFake: func(ctx context.Context, params *dynamodb.ListTablesInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error) {
 				return &dynamodb.ListTablesOutput{
 					TableNames:             tableNames,
@@ -59,8 +59,8 @@ func TestListTables(t *testing.T) {
 				}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := ListTables(context.Background())
 
@@ -72,13 +72,13 @@ func TestListTables(t *testing.T) {
 	})
 
 	t.Run("returns_an_error_when_list_tables_returns_an_error", func(t *testing.T) {
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			ListTablesFake: func(ctx context.Context, params *dynamodb.ListTablesInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error) {
 				return nil, errors.New("the fake error")
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := ListTables(context.Background())
 
@@ -87,15 +87,15 @@ func TestListTables(t *testing.T) {
 	})
 
 	t.Run("returns_empty_slice_when_no_tables_exist", func(t *testing.T) {
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			ListTablesFake: func(ctx context.Context, params *dynamodb.ListTablesInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error) {
 				return &dynamodb.ListTablesOutput{
 					TableNames: []string{},
 				}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := ListTables(context.Background())
 
@@ -106,9 +106,9 @@ func TestListTables(t *testing.T) {
 	})
 
 	t.Run("returns_an_error_when_option_returns_an_error", func(t *testing.T) {
-		fakeDB := &FakeDynamoDB{}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		fakeDB := &FakeSDKDynamoDB{}
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		badOption := func(input *dynamodb.ListTablesInput) error {
 			return errors.New("the option error")
@@ -156,7 +156,7 @@ func TestWithListTablesLimit(t *testing.T) {
 
 	t.Run("passes_limit_to_list_tables", func(t *testing.T) {
 		actualLimit := int32(0)
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			ListTablesFake: func(ctx context.Context, params *dynamodb.ListTablesInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error) {
 				if params.Limit != nil {
 					actualLimit = *params.Limit
@@ -166,8 +166,8 @@ func TestWithListTablesLimit(t *testing.T) {
 				}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := ListTables(context.Background(), WithListTablesLimit(25))
 
@@ -201,7 +201,7 @@ func TestWithListTablesExclusiveStartTableName(t *testing.T) {
 
 	t.Run("passes_exclusive_start_table_name_to_list_tables", func(t *testing.T) {
 		actualExclusiveStartTableName := ""
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			ListTablesFake: func(ctx context.Context, params *dynamodb.ListTablesInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error) {
 				if params.ExclusiveStartTableName != nil {
 					actualExclusiveStartTableName = *params.ExclusiveStartTableName
@@ -211,8 +211,8 @@ func TestWithListTablesExclusiveStartTableName(t *testing.T) {
 				}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := ListTables(context.Background(), WithListTablesExclusiveStartTableName("theStartTable"))
 

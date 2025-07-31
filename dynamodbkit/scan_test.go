@@ -16,8 +16,8 @@ import (
 
 func TestScan(t *testing.T) {
 	t.Run("returns_an_error_when_getting_a_new_dynamodb_connection_returns_an_error", func(t *testing.T) {
-		setFake(func(ctx context.Context) (DynamoDB, error) { return nil, errors.New("the fake error") })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return nil, errors.New("the fake error") })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := Scan[TestUser](context.Background(), "aTable")
 
@@ -27,7 +27,7 @@ func TestScan(t *testing.T) {
 
 	t.Run("passes_the_table_name_to_scan", func(t *testing.T) {
 		actualTableName := ""
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			ScanFake: func(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
 				actualTableName = *params.TableName
 				return &dynamodb.ScanOutput{
@@ -35,8 +35,8 @@ func TestScan(t *testing.T) {
 				}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := Scan[TestUser](context.Background(), "theTableName")
 
@@ -48,15 +48,15 @@ func TestScan(t *testing.T) {
 	t.Run("returns_the_expected_output_when_no_errors_and_no_lastevaluatedkey", func(t *testing.T) {
 		user1 := TestUser{ID: "0", Name: "A Name", Email: "anEmail@anAddress.com"}
 		user2 := TestUser{ID: "0", Name: "A Name", Email: "anEmail@anAddress.com"}
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			ScanFake: func(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
 				return &dynamodb.ScanOutput{
 					Items: []map[string]types.AttributeValue{mustMarshalMap(t, user1), mustMarshalMap(t, user2)},
 				}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := Scan[TestUser](context.Background(), "aTable")
 
@@ -66,13 +66,13 @@ func TestScan(t *testing.T) {
 	})
 
 	t.Run("returns_an_error_when_scan_returns_an_error", func(t *testing.T) {
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			ScanFake: func(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
 				return nil, errors.New("the fake error")
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := Scan[TestUser](context.Background(), "aTable")
 
@@ -85,15 +85,15 @@ func TestScan(t *testing.T) {
 			"id":   &types.AttributeValueMemberS{Value: "123"},
 			"name": &types.AttributeValueMemberL{Value: []types.AttributeValue{}}, // Invalid for string field
 		}
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			ScanFake: func(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
 				return &dynamodb.ScanOutput{
 					Items: []map[string]types.AttributeValue{invalidItem},
 				}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := Scan[TestUser](context.Background(), "aTable")
 
@@ -106,7 +106,7 @@ func TestScan(t *testing.T) {
 		lastEvaluatedKey := map[string]types.AttributeValue{
 			"id": &types.AttributeValueMemberS{Value: "theLastKey"},
 		}
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			ScanFake: func(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
 				return &dynamodb.ScanOutput{
 					Items:            []map[string]types.AttributeValue{mustMarshalMap(t, user1)},
@@ -114,8 +114,8 @@ func TestScan(t *testing.T) {
 				}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := Scan[TestUser](context.Background(), "aTable")
 
@@ -136,7 +136,7 @@ func TestScan(t *testing.T) {
 				Value: []types.AttributeValue{}, // This should be fine, but we'll simulate marshal failure
 			},
 		}
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			ScanFake: func(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
 				return &dynamodb.ScanOutput{
 					Items:            []map[string]types.AttributeValue{mustMarshalMap(t, user1)},
@@ -144,8 +144,8 @@ func TestScan(t *testing.T) {
 				}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := Scan[TestUser](context.Background(), "aTable")
 
@@ -161,15 +161,15 @@ func TestScan(t *testing.T) {
 	})
 
 	t.Run("returns_empty_results_when_scan_returns_no_results", func(t *testing.T) {
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			ScanFake: func(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
 				return &dynamodb.ScanOutput{
 					Items: []map[string]types.AttributeValue{},
 				}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := Scan[TestUser](context.Background(), "aTable")
 
@@ -181,7 +181,7 @@ func TestScan(t *testing.T) {
 
 	t.Run("applies_scan_options_correctly", func(t *testing.T) {
 		actualLimit := int32(0)
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			ScanFake: func(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
 				if params.Limit != nil {
 					actualLimit = *params.Limit
@@ -191,8 +191,8 @@ func TestScan(t *testing.T) {
 				}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := Scan[TestUser](context.Background(), "aTable", WithScanLimit(25))
 
@@ -209,7 +209,7 @@ func TestScan(t *testing.T) {
 		jsonBytes, _ := json.Marshal(exclusiveStartKey)
 		encodedKey := base64.StdEncoding.EncodeToString(jsonBytes)
 
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			ScanFake: func(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
 				if params.Limit != nil {
 					actualLimit = *params.Limit
@@ -220,8 +220,8 @@ func TestScan(t *testing.T) {
 				}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := Scan[TestUser](context.Background(), "aTable", WithScanLimit(10), WithScanExclusiveStartKey(encodedKey))
 
@@ -232,13 +232,13 @@ func TestScan(t *testing.T) {
 	})
 
 	t.Run("returns_an_error_when_scan_option_processing_fails", func(t *testing.T) {
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			ScanFake: func(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
 				return &dynamodb.ScanOutput{Items: []map[string]types.AttributeValue{}}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := Scan[TestUser](context.Background(), "aTable", WithScanLimit(-1))
 

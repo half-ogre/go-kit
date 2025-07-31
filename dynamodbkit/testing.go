@@ -18,7 +18,7 @@ func mustMarshalMap(t *testing.T, v any) map[string]types.AttributeValue {
 	return m
 }
 
-type FakeDynamoDB struct {
+type FakeSDKDynamoDB struct {
 	DeleteItemFake func(ctx context.Context, params *dynamodb.DeleteItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error)
 	GetItemFake    func(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error)
 	ListTablesFake func(ctx context.Context, params *dynamodb.ListTablesInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error)
@@ -27,7 +27,7 @@ type FakeDynamoDB struct {
 	ScanFake       func(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error)
 }
 
-func (f *FakeDynamoDB) DeleteItem(ctx context.Context, params *dynamodb.DeleteItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error) {
+func (f *FakeSDKDynamoDB) DeleteItem(ctx context.Context, params *dynamodb.DeleteItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error) {
 	if f.DeleteItemFake != nil {
 		return f.DeleteItemFake(ctx, params, optFns...)
 	} else {
@@ -35,7 +35,7 @@ func (f *FakeDynamoDB) DeleteItem(ctx context.Context, params *dynamodb.DeleteIt
 	}
 }
 
-func (f *FakeDynamoDB) GetItem(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+func (f *FakeSDKDynamoDB) GetItem(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
 	if f.GetItemFake != nil {
 		return f.GetItemFake(ctx, params, optFns...)
 	} else {
@@ -43,7 +43,7 @@ func (f *FakeDynamoDB) GetItem(ctx context.Context, params *dynamodb.GetItemInpu
 	}
 }
 
-func (f *FakeDynamoDB) ListTables(ctx context.Context, params *dynamodb.ListTablesInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error) {
+func (f *FakeSDKDynamoDB) ListTables(ctx context.Context, params *dynamodb.ListTablesInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ListTablesOutput, error) {
 	if f.ListTablesFake != nil {
 		return f.ListTablesFake(ctx, params, optFns...)
 	} else {
@@ -51,7 +51,7 @@ func (f *FakeDynamoDB) ListTables(ctx context.Context, params *dynamodb.ListTabl
 	}
 }
 
-func (f *FakeDynamoDB) PutItem(ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
+func (f *FakeSDKDynamoDB) PutItem(ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
 	if f.PutItemFake != nil {
 		return f.PutItemFake(ctx, params, optFns...)
 	} else {
@@ -59,7 +59,7 @@ func (f *FakeDynamoDB) PutItem(ctx context.Context, params *dynamodb.PutItemInpu
 	}
 }
 
-func (f *FakeDynamoDB) Query(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
+func (f *FakeSDKDynamoDB) Query(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
 	if f.QueryFake != nil {
 		return f.QueryFake(ctx, params, optFns...)
 	} else {
@@ -67,7 +67,7 @@ func (f *FakeDynamoDB) Query(ctx context.Context, params *dynamodb.QueryInput, o
 	}
 }
 
-func (f *FakeDynamoDB) Scan(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
+func (f *FakeSDKDynamoDB) Scan(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
 	if f.ScanFake != nil {
 		return f.ScanFake(ctx, params, optFns...)
 	} else {

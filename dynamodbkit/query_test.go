@@ -37,8 +37,8 @@ func TestQuery(t *testing.T) {
 	})
 
 	t.Run("returns_an_error_when_getting_a_new_dynamodb_connection_returns_an_error", func(t *testing.T) {
-		setFake(func(ctx context.Context) (DynamoDB, error) { return nil, errors.New("the fake error") })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return nil, errors.New("the fake error") })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := Query[TestUser](context.Background(), "aTable", "id", "aUserID")
 
@@ -48,14 +48,14 @@ func TestQuery(t *testing.T) {
 
 	t.Run("passes_the_table_name_to_query", func(t *testing.T) {
 		actualTableName := ""
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			QueryFake: func(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
 				actualTableName = *params.TableName
 				return &dynamodb.QueryOutput{Items: []map[string]types.AttributeValue{}}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := Query[TestUser](context.Background(), "theTableName", "id", "aUserID")
 
@@ -67,14 +67,14 @@ func TestQuery(t *testing.T) {
 
 	t.Run("builds_key_condition_expression_for_string_partition_key", func(t *testing.T) {
 		var actualInput *dynamodb.QueryInput
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			QueryFake: func(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
 				actualInput = params
 				return &dynamodb.QueryOutput{Items: []map[string]types.AttributeValue{}}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := Query[TestUser](context.Background(), "aTable", "userId", "theUserID")
 
@@ -94,14 +94,14 @@ func TestQuery(t *testing.T) {
 
 	t.Run("builds_key_condition_expression_for_integer_partition_key", func(t *testing.T) {
 		var actualInput *dynamodb.QueryInput
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			QueryFake: func(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
 				actualInput = params
 				return &dynamodb.QueryOutput{Items: []map[string]types.AttributeValue{}}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := Query[TestUser](context.Background(), "aTable", "id", 12345)
 
@@ -116,13 +116,13 @@ func TestQuery(t *testing.T) {
 	})
 
 	t.Run("returns_an_error_when_query_returns_an_error", func(t *testing.T) {
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			QueryFake: func(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
 				return nil, errors.New("the fake error")
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := Query[TestUser](context.Background(), "aTable", "id", "aUserID")
 
@@ -131,13 +131,13 @@ func TestQuery(t *testing.T) {
 	})
 
 	t.Run("returns_empty_results_when_query_returns_no_items", func(t *testing.T) {
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			QueryFake: func(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
 				return &dynamodb.QueryOutput{Items: []map[string]types.AttributeValue{}}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := Query[TestUser](context.Background(), "aTable", "id", "aUserID")
 
@@ -149,7 +149,7 @@ func TestQuery(t *testing.T) {
 	t.Run("returns_multiple_items_when_query_succeeds", func(t *testing.T) {
 		user1 := TestUser{ID: "theUserID1", Name: "theUserName1", Email: "theUserEmail1"}
 		user2 := TestUser{ID: "theUserID2", Name: "theUserName2", Email: "theUserEmail2"}
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			QueryFake: func(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
 				return &dynamodb.QueryOutput{
 					Items: []map[string]types.AttributeValue{
@@ -159,8 +159,8 @@ func TestQuery(t *testing.T) {
 				}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := Query[TestUser](context.Background(), "aTable", "id", "aUserID")
 
@@ -180,13 +180,13 @@ func TestQuery(t *testing.T) {
 			"id":   &types.AttributeValueMemberS{Value: "123"},
 			"name": &types.AttributeValueMemberL{Value: []types.AttributeValue{}}, // Invalid for string field
 		}
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			QueryFake: func(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
 				return &dynamodb.QueryOutput{Items: []map[string]types.AttributeValue{invalidItem}}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := Query[TestUser](context.Background(), "aTable", "id", "aUserID")
 
@@ -196,14 +196,14 @@ func TestQuery(t *testing.T) {
 
 	t.Run("applies_query_options_correctly", func(t *testing.T) {
 		var actualInput *dynamodb.QueryInput
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			QueryFake: func(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
 				actualInput = params
 				return &dynamodb.QueryOutput{Items: []map[string]types.AttributeValue{}}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := Query[TestUser](context.Background(), "aTable", "id", "aUserID",
 			WithQueryProjectionExpression("id, #name"))
@@ -216,13 +216,13 @@ func TestQuery(t *testing.T) {
 	})
 
 	t.Run("returns_an_error_when_query_option_processing_fails", func(t *testing.T) {
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			QueryFake: func(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
 				return &dynamodb.QueryOutput{Items: []map[string]types.AttributeValue{}}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		failingOption := func(input *dynamodb.QueryInput) error {
 			return errors.New("option processing failed")
@@ -236,7 +236,7 @@ func TestQuery(t *testing.T) {
 
 	t.Run("succeeds_when_no_errors", func(t *testing.T) {
 		user := TestUser{ID: "theUserID", Name: "theUserName", Email: "theUserEmail"}
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			QueryFake: func(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
 				return &dynamodb.QueryOutput{
 					Items: []map[string]types.AttributeValue{
@@ -245,8 +245,8 @@ func TestQuery(t *testing.T) {
 				}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := Query[TestUser](context.Background(), "aTable", "id", "aUserID")
 
@@ -260,7 +260,7 @@ func TestQuery(t *testing.T) {
 
 	t.Run("returns_last_evaluated_key_when_present_in_output", func(t *testing.T) {
 		user := TestUser{ID: "theUserID", Name: "theUserName", Email: "theUserEmail"}
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			QueryFake: func(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
 				return &dynamodb.QueryOutput{
 					Items: []map[string]types.AttributeValue{mustMarshalMap(t, user)},
@@ -270,8 +270,8 @@ func TestQuery(t *testing.T) {
 				}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := Query[TestUser](context.Background(), "aTable", "id", "aUserID")
 
@@ -283,15 +283,15 @@ func TestQuery(t *testing.T) {
 
 	t.Run("returns_nil_last_evaluated_key_when_not_present_in_output", func(t *testing.T) {
 		user := TestUser{ID: "theUserID", Name: "theUserName", Email: "theUserEmail"}
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			QueryFake: func(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
 				return &dynamodb.QueryOutput{
 					Items: []map[string]types.AttributeValue{mustMarshalMap(t, user)},
 				}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := Query[TestUser](context.Background(), "aTable", "id", "aUserID")
 
@@ -302,7 +302,7 @@ func TestQuery(t *testing.T) {
 
 	t.Run("returns_an_error_when_last_evaluated_key_json_marshalling_fails", func(t *testing.T) {
 		user := TestUser{ID: "theUserID", Name: "theUserName", Email: "theUserEmail"}
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			QueryFake: func(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
 				return &dynamodb.QueryOutput{
 					Items: []map[string]types.AttributeValue{mustMarshalMap(t, user)},
@@ -312,8 +312,8 @@ func TestQuery(t *testing.T) {
 				}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := Query[TestUser](context.Background(), "aTable", "id", "aUserID")
 

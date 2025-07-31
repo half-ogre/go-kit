@@ -26,7 +26,22 @@ func Query[TItem any, TPartitionKey string | int](ctx context.Context, tableName
 		return nil, kit.WrapError(nil, "partition key cannot be empty")
 	}
 
-	db, err := newDynamoDB(ctx)
+	// Check if consumer fake is set
+	fake := getFakeDynamoDB()
+	if fake != nil {
+		result, err := fake.Query(ctx, tableName, partitionKey, partitionKeyValue, options...)
+		if err != nil {
+			return nil, err
+		}
+		// Type assert the result to the expected type
+		queryOutput, ok := result.(*QueryOutput[TItem])
+		if !ok {
+			return nil, kit.WrapError(nil, "fake returned unexpected type for Query")
+		}
+		return queryOutput, nil
+	}
+
+	db, err := newDynamoDBSDK(ctx)
 	if err != nil {
 		return nil, kit.WrapError(err, "error creating DynamoDB client")
 	}

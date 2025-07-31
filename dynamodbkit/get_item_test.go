@@ -13,8 +13,8 @@ import (
 
 func TestGetItem(t *testing.T) {
 	t.Run("returns_an_error_when_getting_a_new_dynamodb_connection_returns_an_error", func(t *testing.T) {
-		setFake(func(ctx context.Context) (DynamoDB, error) { return nil, errors.New("the fake error") })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return nil, errors.New("the fake error") })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := GetItem[TestUser](context.Background(), "aTable", "id", "aUserID")
 
@@ -24,14 +24,14 @@ func TestGetItem(t *testing.T) {
 
 	t.Run("passes_the_table_name_to_get_item", func(t *testing.T) {
 		actualTableName := ""
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			GetItemFake: func(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
 				actualTableName = *params.TableName
 				return &dynamodb.GetItemOutput{}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := GetItem[TestUser](context.Background(), "theTableName", "id", "aUserID")
 
@@ -42,14 +42,14 @@ func TestGetItem(t *testing.T) {
 
 	t.Run("passes_the_partition_key_and_value_to_get_item", func(t *testing.T) {
 		var actualKey map[string]types.AttributeValue
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			GetItemFake: func(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
 				actualKey = params.Key
 				return &dynamodb.GetItemOutput{}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := GetItem[TestUser](context.Background(), "aTable", "userId", "theUserID")
 
@@ -62,14 +62,14 @@ func TestGetItem(t *testing.T) {
 
 	t.Run("passes_integer_partition_key_value_correctly", func(t *testing.T) {
 		var actualKey map[string]types.AttributeValue
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			GetItemFake: func(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
 				actualKey = params.Key
 				return &dynamodb.GetItemOutput{}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := GetItem[TestUser](context.Background(), "aTable", "id", 12345)
 
@@ -81,13 +81,13 @@ func TestGetItem(t *testing.T) {
 	})
 
 	t.Run("returns_an_error_when_get_item_returns_an_error", func(t *testing.T) {
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			GetItemFake: func(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
 				return nil, errors.New("the fake error")
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := GetItem[TestUser](context.Background(), "aTable", "id", "aUserID")
 
@@ -96,13 +96,13 @@ func TestGetItem(t *testing.T) {
 	})
 
 	t.Run("returns_nil_when_item_not_found", func(t *testing.T) {
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			GetItemFake: func(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
 				return &dynamodb.GetItemOutput{Item: nil}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := GetItem[TestUser](context.Background(), "aTable", "id", "aUserID")
 
@@ -112,15 +112,15 @@ func TestGetItem(t *testing.T) {
 
 	t.Run("returns_the_item_when_found", func(t *testing.T) {
 		user := TestUser{ID: "theUserID", Name: "theUserName", Email: "theUserEmail"}
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			GetItemFake: func(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
 				return &dynamodb.GetItemOutput{
 					Item: mustMarshalMap(t, user),
 				}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := GetItem[TestUser](context.Background(), "aTable", "id", "aUserID")
 
@@ -136,13 +136,13 @@ func TestGetItem(t *testing.T) {
 			"id":   &types.AttributeValueMemberS{Value: "123"},
 			"name": &types.AttributeValueMemberL{Value: []types.AttributeValue{}}, // Invalid for string field
 		}
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			GetItemFake: func(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
 				return &dynamodb.GetItemOutput{Item: invalidItem}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := GetItem[TestUser](context.Background(), "aTable", "id", "aUserID")
 
@@ -152,14 +152,14 @@ func TestGetItem(t *testing.T) {
 
 	t.Run("applies_get_item_options_correctly", func(t *testing.T) {
 		var actualInput *dynamodb.GetItemInput
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			GetItemFake: func(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
 				actualInput = params
 				return &dynamodb.GetItemOutput{}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		result, err := GetItem[TestUser](context.Background(), "aTable", "userId", "aUserID",
 			WithGetItemSortKey("timestamp", "2023-01-01"))
@@ -172,13 +172,13 @@ func TestGetItem(t *testing.T) {
 	})
 
 	t.Run("returns_an_error_when_get_item_option_processing_fails", func(t *testing.T) {
-		fakeDB := &FakeDynamoDB{
+		fakeDB := &FakeSDKDynamoDB{
 			GetItemFake: func(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
 				return &dynamodb.GetItemOutput{}, nil
 			},
 		}
-		setFake(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
-		t.Cleanup(func() { setFake(nil) })
+		setFakeSDK(func(ctx context.Context) (DynamoDB, error) { return fakeDB, nil })
+		t.Cleanup(func() { setFakeSDK(nil) })
 
 		failingOption := func(input *dynamodb.GetItemInput) error {
 			return errors.New("option processing failed")
