@@ -15,8 +15,11 @@ help:
 build:
 	go build ./...
 
-test: tidy fmt vet
+test: tidy fmt vet staticcheck
 	go test -v ./... -tags=!acceptance
+
+staticcheck:
+	staticcheck ./...
 
 fmt:
 	gofmt -s -l -w .
