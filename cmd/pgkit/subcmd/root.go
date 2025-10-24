@@ -18,6 +18,11 @@ var rootCmd = &cobra.Command{
 	Short: "PostgreSQL toolkit",
 	Long:  `A toolkit for managing PostgreSQL databases including migrations, creation, and deletion.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		// Skip DB URL requirement for commands that don't need a database
+		if cmd.Name() == "version" {
+			return nil
+		}
+
 		// Get DB URL from flag or environment
 		url, err := getDBURL()
 		if err != nil {

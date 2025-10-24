@@ -1,7 +1,8 @@
-.PHONY: build test clean fmt vet tidy help localdb-start localdb-stop localdb-tables localdb-clean acceptance acceptance-dynamodbkit acceptance-pgkit localpostgres-start localpostgres-stop localpostgres-clean install-pgkit staticcheck
+.PHONY: build build-pgkit test clean fmt vet tidy help localdb-start localdb-stop localdb-tables localdb-clean acceptance acceptance-dynamodbkit acceptance-pgkit localpostgres-start localpostgres-stop localpostgres-clean install-pgkit staticcheck
 
 help:
 	@echo "build                 - Build all packages"
+	@echo "build-pgkit           - Build pgkit CLI with version info to bin/pgkit"
 	@echo "test                  - Run tests (includes tidy, fmt, vet, staticcheck)"
 	@echo "fmt                   - Format code"
 	@echo "vet                   - Run go vet"
@@ -22,6 +23,19 @@ help:
 build:
 	go build ./...
 
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+GIT_COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+BUILD_DATE ?= $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
+
+LDFLAGS := -ldflags "\
+	-X main.version=$(VERSION) \
+	-X main.gitCommit=$(GIT_COMMIT) \
+	-X main.buildDate=$(BUILD_DATE)"
+
+build-pgkit:
+	@mkdir -p bin
+	go build $(LDFLAGS) -o bin/pgkit ./cmd/pgkit
+
 test: tidy fmt vet staticcheck
 	go test -v ./... -tags=!acceptance
 
@@ -39,7 +53,7 @@ tidy:
 
 clean:
 	go clean
-	rm -rf *.out
+	rm -rf *.out bin
 
 install-pgkit:
 	go install ./cmd/pgkit
