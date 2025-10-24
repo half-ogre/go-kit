@@ -3,6 +3,7 @@ package subcmd
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/half-ogre/go-kit/pgkit"
 	"github.com/spf13/cobra"
@@ -38,11 +39,11 @@ func runStatus(db pgkit.DB) error {
 	for rows.Next() {
 		hasRows = true
 		var filename string
-		var appliedAt string
+		var appliedAt time.Time
 		if err := rows.Scan(&filename, &appliedAt); err != nil {
 			return fmt.Errorf("failed to scan row: %w", err)
 		}
-		fmt.Printf("  %s (applied at %s)\n", filename, appliedAt)
+		fmt.Printf("  %s (applied at %s)\n", filename, appliedAt.Format(time.RFC3339))
 	}
 
 	if !hasRows {

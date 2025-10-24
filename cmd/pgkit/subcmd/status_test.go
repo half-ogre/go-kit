@@ -3,6 +3,7 @@ package subcmd
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/half-ogre/go-kit/pgkit"
 	"github.com/stretchr/testify/assert"
@@ -14,7 +15,9 @@ func TestRunStatus(t *testing.T) {
 		nextCallCount := 0
 		scanCallCount := 0
 		var actualFilenames []string
-		var actualAppliedAts []string
+		var actualAppliedAts []time.Time
+		time1 := time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC)
+		time2 := time.Date(2025, 1, 2, 13, 30, 0, 0, time.UTC)
 		fakeRows := &pgkit.FakeRows{
 			NextFake: func() bool {
 				nextCallCount++
@@ -24,13 +27,13 @@ func TestRunStatus(t *testing.T) {
 				scanCallCount++
 				if nextCallCount == 1 {
 					*dest[0].(*string) = "001_theMigration.sql"
-					*dest[1].(*string) = "2025-01-01 12:00:00"
+					*dest[1].(*time.Time) = time1
 				} else if nextCallCount == 2 {
 					*dest[0].(*string) = "002_anotherMigration.sql"
-					*dest[1].(*string) = "2025-01-02 13:30:00"
+					*dest[1].(*time.Time) = time2
 				}
 				actualFilenames = append(actualFilenames, *dest[0].(*string))
-				actualAppliedAts = append(actualAppliedAts, *dest[1].(*string))
+				actualAppliedAts = append(actualAppliedAts, *dest[1].(*time.Time))
 				return nil
 			},
 			CloseFake: func() error { return nil },
@@ -49,7 +52,7 @@ func TestRunStatus(t *testing.T) {
 		assert.Equal(t, "SELECT filename, applied_at FROM pgkit_migrations ORDER BY applied_at", actualQuery)
 		assert.Equal(t, 2, scanCallCount)
 		assert.Equal(t, []string{"001_theMigration.sql", "002_anotherMigration.sql"}, actualFilenames)
-		assert.Equal(t, []string{"2025-01-01 12:00:00", "2025-01-02 13:30:00"}, actualAppliedAts)
+		assert.Equal(t, []time.Time{time1, time2}, actualAppliedAts)
 	})
 
 	t.Run("displays_no_migrations_message_when_no_rows", func(t *testing.T) {
