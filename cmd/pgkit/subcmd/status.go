@@ -2,6 +2,7 @@ package subcmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/half-ogre/go-kit/pgkit"
 	"github.com/spf13/cobra"
@@ -23,7 +24,7 @@ func runStatus(db pgkit.DB) error {
 	rows, err := db.Query("SELECT filename, applied_at FROM pgkit_migrations ORDER BY applied_at")
 	if err != nil {
 		// If the migrations table doesn't exist yet, just show no migrations
-		if err.Error() == "pq: relation \"pgkit_migrations\" does not exist" {
+		if strings.Contains(err.Error(), "relation \"pgkit_migrations\" does not exist") {
 			fmt.Println("Applied migrations:")
 			fmt.Println("  (none)")
 			return nil

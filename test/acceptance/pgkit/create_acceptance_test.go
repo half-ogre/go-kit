@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	_ "github.com/lib/pq"
+	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -91,7 +91,7 @@ func cleanupPgkit(t *testing.T) {
 func createTestDatabase(t *testing.T, adminDBURL, dbName string) {
 	t.Helper()
 
-	db, err := sql.Open("postgres", adminDBURL)
+	db, err := sql.Open("pgx", adminDBURL)
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -102,7 +102,7 @@ func createTestDatabase(t *testing.T, adminDBURL, dbName string) {
 func dropTestDatabase(t *testing.T, adminDBURL, dbName string) {
 	t.Helper()
 
-	db, err := sql.Open("postgres", adminDBURL)
+	db, err := sql.Open("pgx", adminDBURL)
 	if err != nil {
 		return // Best effort cleanup
 	}
@@ -114,7 +114,7 @@ func dropTestDatabase(t *testing.T, adminDBURL, dbName string) {
 func assertDatabaseExists(t *testing.T, adminDBURL, dbName string, shouldExist bool) {
 	t.Helper()
 
-	db, err := sql.Open("postgres", adminDBURL)
+	db, err := sql.Open("pgx", adminDBURL)
 	require.NoError(t, err)
 	defer db.Close()
 

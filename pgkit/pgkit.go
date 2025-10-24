@@ -3,6 +3,8 @@ package pgkit
 import (
 	"database/sql"
 
+	_ "github.com/jackc/pgx/v5/stdlib"
+
 	"github.com/half-ogre/go-kit/kit"
 )
 
@@ -76,7 +78,7 @@ func (s *sqlRows) Err() error {
 // NewDB creates a new database connection from a connection string.
 // It opens the connection and verifies it with a ping.
 func NewDB(connectionString string) (DB, error) {
-	db, err := sql.Open("postgres", connectionString)
+	db, err := sql.Open("pgx", connectionString)
 	if err != nil {
 		return nil, kit.WrapError(err, "failed to open database")
 	}
