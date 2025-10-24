@@ -27,9 +27,9 @@ type Rows interface {
 
 // DB is an interface for database operations
 type DB interface {
-	QueryRow(query string, args ...any) Row
-	Query(query string, args ...any) (Rows, error)
-	Exec(query string, args ...any) (sql.Result, error)
+	QueryRow(ctx context.Context, query string, args ...any) Row
+	Query(ctx context.Context, query string, args ...any) (Rows, error)
+	Exec(ctx context.Context, query string, args ...any) (sql.Result, error)
 	Close() error
 }
 
@@ -121,20 +121,20 @@ type poolDB struct {
 	pool *pgxpool.Pool
 }
 
-func (p *poolDB) QueryRow(query string, args ...any) Row {
-	return p.pool.QueryRow(context.Background(), query, args...)
+func (p *poolDB) QueryRow(ctx context.Context, query string, args ...any) Row {
+	return p.pool.QueryRow(ctx, query, args...)
 }
 
-func (p *poolDB) Query(query string, args ...any) (Rows, error) {
-	rows, err := p.pool.Query(context.Background(), query, args...)
+func (p *poolDB) Query(ctx context.Context, query string, args ...any) (Rows, error) {
+	rows, err := p.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
 	return &pgxRows{rows: rows}, nil
 }
 
-func (p *poolDB) Exec(query string, args ...any) (sql.Result, error) {
-	cmdTag, err := p.pool.Exec(context.Background(), query, args...)
+func (p *poolDB) Exec(ctx context.Context, query string, args ...any) (sql.Result, error) {
+	cmdTag, err := p.pool.Exec(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}

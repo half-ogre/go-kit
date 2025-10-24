@@ -3,6 +3,7 @@
 package pgkit_test
 
 import (
+	"context"
 	"os"
 	"testing"
 
@@ -29,7 +30,7 @@ func TestRunMigrations(t *testing.T) {
 
 		require.NoError(t, err)
 		var tableExists bool
-		err = db.QueryRow(`
+		err = db.QueryRow(context.Background(), `
 			SELECT EXISTS (
 				SELECT FROM information_schema.tables
 				WHERE table_name = 'pgkit_migrations'
@@ -38,7 +39,7 @@ func TestRunMigrations(t *testing.T) {
 		require.NoError(t, err)
 		assert.True(t, tableExists, "pgkit_migrations table should exist")
 		var columnCount int
-		err = db.QueryRow(`
+		err = db.QueryRow(context.Background(), `
 			SELECT COUNT(*)
 			FROM information_schema.columns
 			WHERE table_name = 'pgkit_migrations'
@@ -56,10 +57,10 @@ func TestRunMigrations(t *testing.T) {
 
 		require.NoError(t, err)
 		var migrationCount int
-		err = db.QueryRow("SELECT COUNT(*) FROM pgkit_migrations").Scan(&migrationCount)
+		err = db.QueryRow(context.Background(), "SELECT COUNT(*) FROM pgkit_migrations").Scan(&migrationCount)
 		require.NoError(t, err)
 		assert.Equal(t, 4, migrationCount, "should have 4 migrations applied")
-		rows, err := db.Query("SELECT filename FROM pgkit_migrations ORDER BY id")
+		rows, err := db.Query(context.Background(), "SELECT filename FROM pgkit_migrations ORDER BY id")
 		require.NoError(t, err)
 		defer rows.Close()
 		expectedFiles := []string{
@@ -87,7 +88,7 @@ func TestRunMigrations(t *testing.T) {
 
 		require.NoError(t, err)
 		var tableExists bool
-		err = db.QueryRow(`
+		err = db.QueryRow(context.Background(), `
 			SELECT EXISTS (
 				SELECT FROM information_schema.tables
 				WHERE table_name = 'test_users'
@@ -96,7 +97,7 @@ func TestRunMigrations(t *testing.T) {
 		require.NoError(t, err)
 		assert.True(t, tableExists, "test_users table should exist")
 		var columnNames []string
-		rows, err := db.Query(`
+		rows, err := db.Query(context.Background(), `
 			SELECT column_name
 			FROM information_schema.columns
 			WHERE table_name = 'test_users'
@@ -113,7 +114,7 @@ func TestRunMigrations(t *testing.T) {
 		expectedColumns := []string{"id", "name", "created_at", "email", "status"}
 		assert.Equal(t, expectedColumns, columnNames, "test_users should have expected columns")
 		var indexExists bool
-		err = db.QueryRow(`
+		err = db.QueryRow(context.Background(), `
 			SELECT EXISTS (
 				SELECT FROM pg_indexes
 				WHERE tablename = 'test_users' AND indexname = 'idx_test_users_email'
@@ -130,14 +131,14 @@ func TestRunMigrations(t *testing.T) {
 		err := migrator.RunMigrations(db, "testdata")
 		require.NoError(t, err)
 		var countBefore int
-		err = db.QueryRow("SELECT COUNT(*) FROM pgkit_migrations").Scan(&countBefore)
+		err = db.QueryRow(context.Background(), "SELECT COUNT(*) FROM pgkit_migrations").Scan(&countBefore)
 		require.NoError(t, err)
 
 		err = migrator.RunMigrations(db, "testdata")
 
 		require.NoError(t, err)
 		var countAfter int
-		err = db.QueryRow("SELECT COUNT(*) FROM pgkit_migrations").Scan(&countAfter)
+		err = db.QueryRow(context.Background(), "SELECT COUNT(*) FROM pgkit_migrations").Scan(&countAfter)
 		require.NoError(t, err)
 		assert.Equal(t, countBefore, countAfter, "migration count should not increase on second run")
 	})
@@ -153,7 +154,7 @@ func TestRunMigrations(t *testing.T) {
 		}
 
 		var migrationCount int
-		err := db.QueryRow("SELECT COUNT(*) FROM pgkit_migrations").Scan(&migrationCount)
+		err := db.QueryRow(context.Background(), "SELECT COUNT(*) FROM pgkit_migrations").Scan(&migrationCount)
 		require.NoError(t, err)
 		assert.Equal(t, 4, migrationCount, "should have exactly 4 migrations after multiple runs")
 	})
@@ -167,7 +168,7 @@ func TestRunMigrations(t *testing.T) {
 
 		require.NoError(t, err)
 		var nullTimestamps int
-		err = db.QueryRow("SELECT COUNT(*) FROM pgkit_migrations WHERE applied_at IS NULL").Scan(&nullTimestamps)
+		err = db.QueryRow(context.Background(), "SELECT COUNT(*) FROM pgkit_migrations WHERE applied_at IS NULL").Scan(&nullTimestamps)
 		require.NoError(t, err)
 		assert.Equal(t, 0, nullTimestamps, "all migrations should have applied_at timestamps")
 	})
@@ -179,18 +180,18 @@ func TestRunMigrations(t *testing.T) {
 		err := migrator.RunMigrations(db, "testdata")
 		require.NoError(t, err)
 
-		_, err = db.Exec(`
+		_, err = db.Exec(context.Background(), `
 			INSERT INTO test_users (name, email, status)
 			VALUES ($1, $2, $3)
 		`, "Test User", "test@example.com", "active")
 
 		require.NoError(t, err)
 		var count int
-		err = db.QueryRow("SELECT COUNT(*) FROM test_users").Scan(&count)
+		err = db.QueryRow(context.Background(), "SELECT COUNT(*) FROM test_users").Scan(&count)
 		require.NoError(t, err)
 		assert.Equal(t, 1, count, "should have 1 user after insert")
 		var name, email, status string
-		err = db.QueryRow("SELECT name, email, status FROM test_users LIMIT 1").Scan(&name, &email, &status)
+		err = db.QueryRow(context.Background(), "SELECT name, email, status FROM test_users LIMIT 1").Scan(&name, &email, &status)
 		require.NoError(t, err)
 		assert.Equal(t, "Test User", name)
 		assert.Equal(t, "test@example.com", email)
@@ -246,10 +247,10 @@ func cleanupTestDB(t *testing.T, db pgkit.DB) {
 	t.Helper()
 
 	// Drop test_users table if it exists
-	_, err := db.Exec("DROP TABLE IF EXISTS test_users CASCADE")
+	_, err := db.Exec(context.Background(), "DROP TABLE IF EXISTS test_users CASCADE")
 	require.NoError(t, err)
 
 	// Drop pgkit_migrations table if it exists
-	_, err = db.Exec("DROP TABLE IF EXISTS pgkit_migrations CASCADE")
+	_, err = db.Exec(context.Background(), "DROP TABLE IF EXISTS pgkit_migrations CASCADE")
 	require.NoError(t, err)
 }

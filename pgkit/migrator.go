@@ -1,6 +1,7 @@
 package pgkit
 
 import (
+	"context"
 	"fmt"
 	"io/fs"
 	"os"
@@ -29,7 +30,7 @@ func (m *migrator) RunMigrations(db DB, dirPath string) error {
 	migrationsFS := os.DirFS(dirPath)
 
 	// Create migrations tracking table
-	_, err := db.Exec(`
+	_, err := db.Exec(context.Background(), `
 		CREATE TABLE IF NOT EXISTS pgkit_migrations (
 			id SERIAL PRIMARY KEY,
 			filename VARCHAR(255) UNIQUE NOT NULL,
@@ -57,7 +58,7 @@ func (m *migrator) RunMigrations(db DB, dirPath string) error {
 	// Run each migration if not already applied
 	for _, filename := range filenames {
 		var exists bool
-		err := db.QueryRow("SELECT EXISTS(SELECT 1 FROM pgkit_migrations WHERE filename = $1)", filename).Scan(&exists)
+		err := db.QueryRow(context.Background(), "SELECT EXISTS(SELECT 1 FROM pgkit_migrations WHERE filename = $1)", filename).Scan(&exists)
 		if err != nil {
 			return kit.WrapError(err, "failed to check migration %s", filename)
 		}
@@ -72,13 +73,13 @@ func (m *migrator) RunMigrations(db DB, dirPath string) error {
 			return kit.WrapError(err, "failed to read migration %s", filename)
 		}
 
-		_, err = db.Exec(string(content))
+		_, err = db.Exec(context.Background(), string(content))
 		if err != nil {
 			return kit.WrapError(err, "failed to execute migration %s", filename)
 		}
 
 		// Record migration as applied
-		_, err = db.Exec("INSERT INTO pgkit_migrations (filename) VALUES ($1)", filename)
+		_, err = db.Exec(context.Background(), "INSERT INTO pgkit_migrations (filename) VALUES ($1)", filename)
 		if err != nil {
 			return kit.WrapError(err, "failed to record migration %s", filename)
 		}

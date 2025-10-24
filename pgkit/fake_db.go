@@ -1,6 +1,9 @@
 package pgkit
 
-import "database/sql"
+import (
+	"context"
+	"database/sql"
+)
 
 type FakeRow struct {
 	ScanFake func(dest ...any) error
@@ -49,29 +52,29 @@ func (f *FakeRows) Err() error {
 }
 
 type FakeDB struct {
-	QueryRowFake func(query string, args ...any) Row
-	QueryFake    func(query string, args ...any) (Rows, error)
-	ExecFake     func(query string, args ...any) (sql.Result, error)
+	QueryRowFake func(ctx context.Context, query string, args ...any) Row
+	QueryFake    func(ctx context.Context, query string, args ...any) (Rows, error)
+	ExecFake     func(ctx context.Context, query string, args ...any) (sql.Result, error)
 	CloseFake    func() error
 }
 
-func (f *FakeDB) QueryRow(query string, args ...any) Row {
+func (f *FakeDB) QueryRow(ctx context.Context, query string, args ...any) Row {
 	if f.QueryRowFake != nil {
-		return f.QueryRowFake(query, args...)
+		return f.QueryRowFake(ctx, query, args...)
 	}
 	panic("QueryRow fake not implemented")
 }
 
-func (f *FakeDB) Query(query string, args ...any) (Rows, error) {
+func (f *FakeDB) Query(ctx context.Context, query string, args ...any) (Rows, error) {
 	if f.QueryFake != nil {
-		return f.QueryFake(query, args...)
+		return f.QueryFake(ctx, query, args...)
 	}
 	panic("Query fake not implemented")
 }
 
-func (f *FakeDB) Exec(query string, args ...any) (sql.Result, error) {
+func (f *FakeDB) Exec(ctx context.Context, query string, args ...any) (sql.Result, error) {
 	if f.ExecFake != nil {
-		return f.ExecFake(query, args...)
+		return f.ExecFake(ctx, query, args...)
 	}
 	panic("Exec fake not implemented")
 }

@@ -1,6 +1,7 @@
 package pgkit
 
 import (
+	"context"
 	"database/sql"
 	"testing"
 
@@ -18,12 +19,12 @@ func TestRunMigrations(t *testing.T) {
 		var queryRowArgs []string
 
 		fakeDB := &FakeDB{
-			ExecFake: func(query string, args ...any) (sql.Result, error) {
+			ExecFake: func(ctx context.Context, query string, args ...any) (sql.Result, error) {
 				execCallCount++
 				execQueries = append(execQueries, query)
 				return nil, nil
 			},
-			QueryRowFake: func(query string, args ...any) Row {
+			QueryRowFake: func(ctx context.Context, query string, args ...any) Row {
 				queryRowCallCount++
 				queryRowQueries = append(queryRowQueries, query)
 				if len(args) > 0 {
@@ -63,11 +64,11 @@ func TestRunMigrations(t *testing.T) {
 		queryRowCallCount := 0
 
 		fakeDB := &FakeDB{
-			ExecFake: func(query string, args ...any) (sql.Result, error) {
+			ExecFake: func(ctx context.Context, query string, args ...any) (sql.Result, error) {
 				execCallCount++
 				return nil, nil
 			},
-			QueryRowFake: func(query string, args ...any) Row {
+			QueryRowFake: func(ctx context.Context, query string, args ...any) Row {
 				queryRowCallCount++
 				filename := args[0].(string)
 				return &FakeRow{
@@ -96,7 +97,7 @@ func TestRunMigrations(t *testing.T) {
 
 	t.Run("returns_error_when_creating_migrations_table_fails", func(t *testing.T) {
 		fakeDB := &FakeDB{
-			ExecFake: func(query string, args ...any) (sql.Result, error) {
+			ExecFake: func(ctx context.Context, query string, args ...any) (sql.Result, error) {
 				return nil, assert.AnError
 			},
 		}
@@ -110,10 +111,10 @@ func TestRunMigrations(t *testing.T) {
 
 	t.Run("returns_error_when_checking_migration_existence_fails", func(t *testing.T) {
 		fakeDB := &FakeDB{
-			ExecFake: func(query string, args ...any) (sql.Result, error) {
+			ExecFake: func(ctx context.Context, query string, args ...any) (sql.Result, error) {
 				return nil, nil
 			},
-			QueryRowFake: func(query string, args ...any) Row {
+			QueryRowFake: func(ctx context.Context, query string, args ...any) Row {
 				return &FakeRow{
 					ScanFake: func(dest ...any) error {
 						return assert.AnError
@@ -132,7 +133,7 @@ func TestRunMigrations(t *testing.T) {
 	t.Run("returns_error_when_executing_migration_fails", func(t *testing.T) {
 		execCallCount := 0
 		fakeDB := &FakeDB{
-			ExecFake: func(query string, args ...any) (sql.Result, error) {
+			ExecFake: func(ctx context.Context, query string, args ...any) (sql.Result, error) {
 				execCallCount++
 				// CREATE TABLE succeeds, but first migration execution fails
 				if execCallCount > 1 {
@@ -140,7 +141,7 @@ func TestRunMigrations(t *testing.T) {
 				}
 				return nil, nil
 			},
-			QueryRowFake: func(query string, args ...any) Row {
+			QueryRowFake: func(ctx context.Context, query string, args ...any) Row {
 				return &FakeRow{
 					ScanFake: func(dest ...any) error {
 						*dest[0].(*bool) = false
@@ -160,7 +161,7 @@ func TestRunMigrations(t *testing.T) {
 	t.Run("returns_error_when_recording_migration_fails", func(t *testing.T) {
 		execCallCount := 0
 		fakeDB := &FakeDB{
-			ExecFake: func(query string, args ...any) (sql.Result, error) {
+			ExecFake: func(ctx context.Context, query string, args ...any) (sql.Result, error) {
 				execCallCount++
 				// CREATE TABLE and migration execution succeed, but INSERT fails
 				if execCallCount == 3 {
@@ -168,7 +169,7 @@ func TestRunMigrations(t *testing.T) {
 				}
 				return nil, nil
 			},
-			QueryRowFake: func(query string, args ...any) Row {
+			QueryRowFake: func(ctx context.Context, query string, args ...any) Row {
 				return &FakeRow{
 					ScanFake: func(dest ...any) error {
 						*dest[0].(*bool) = false

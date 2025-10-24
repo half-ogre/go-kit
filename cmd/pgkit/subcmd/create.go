@@ -1,6 +1,7 @@
 package subcmd
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/half-ogre/go-kit/pgkit"
@@ -27,7 +28,7 @@ func init() {
 func runCreate(adminDB pgkit.DB, dbName string) error {
 	// Check if database already exists
 	var exists bool
-	err := adminDB.QueryRow("SELECT EXISTS(SELECT 1 FROM pg_database WHERE datname = $1)", dbName).Scan(&exists)
+	err := adminDB.QueryRow(context.Background(), "SELECT EXISTS(SELECT 1 FROM pg_database WHERE datname = $1)", dbName).Scan(&exists)
 	if err != nil {
 		return fmt.Errorf("failed to check if database exists: %w", err)
 	}
@@ -37,7 +38,7 @@ func runCreate(adminDB pgkit.DB, dbName string) error {
 	}
 
 	// Create the database
-	_, err = adminDB.Exec(fmt.Sprintf("CREATE DATABASE %s", quoteIdentifier(dbName)))
+	_, err = adminDB.Exec(context.Background(), fmt.Sprintf("CREATE DATABASE %s", quoteIdentifier(dbName)))
 	if err != nil {
 		return fmt.Errorf("failed to create database: %w", err)
 	}

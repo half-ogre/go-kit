@@ -1,6 +1,7 @@
 package subcmd
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -22,7 +23,7 @@ var statusCmd = &cobra.Command{
 
 // runStatus contains the main logic for showing migration status
 func runStatus(db pgkit.DB) error {
-	rows, err := db.Query("SELECT filename, applied_at FROM pgkit_migrations ORDER BY applied_at")
+	rows, err := db.Query(context.Background(), "SELECT filename, applied_at FROM pgkit_migrations ORDER BY applied_at")
 	if err != nil {
 		// If the migrations table doesn't exist yet, just show no migrations
 		if strings.Contains(err.Error(), "relation \"pgkit_migrations\" does not exist") {

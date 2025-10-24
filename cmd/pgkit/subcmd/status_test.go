@@ -1,6 +1,7 @@
 package subcmd
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -40,7 +41,7 @@ func TestRunStatus(t *testing.T) {
 			ErrFake:   func() error { return nil },
 		}
 		fakeDB := &pgkit.FakeDB{
-			QueryFake: func(query string, args ...any) (pgkit.Rows, error) {
+			QueryFake: func(ctx context.Context, query string, args ...any) (pgkit.Rows, error) {
 				actualQuery = query
 				return fakeRows, nil
 			},
@@ -62,7 +63,7 @@ func TestRunStatus(t *testing.T) {
 			ErrFake:   func() error { return nil },
 		}
 		fakeDB := &pgkit.FakeDB{
-			QueryFake: func(query string, args ...any) (pgkit.Rows, error) {
+			QueryFake: func(ctx context.Context, query string, args ...any) (pgkit.Rows, error) {
 				return fakeRows, nil
 			},
 		}
@@ -74,7 +75,7 @@ func TestRunStatus(t *testing.T) {
 
 	t.Run("returns_error_when_query_fails", func(t *testing.T) {
 		fakeDB := &pgkit.FakeDB{
-			QueryFake: func(query string, args ...any) (pgkit.Rows, error) {
+			QueryFake: func(ctx context.Context, query string, args ...any) (pgkit.Rows, error) {
 				return nil, errors.New("the query error")
 			},
 		}
@@ -91,7 +92,7 @@ func TestRunStatus(t *testing.T) {
 			CloseFake: func() error { return nil },
 		}
 		fakeDB := &pgkit.FakeDB{
-			QueryFake: func(query string, args ...any) (pgkit.Rows, error) {
+			QueryFake: func(ctx context.Context, query string, args ...any) (pgkit.Rows, error) {
 				return fakeRows, nil
 			},
 		}
@@ -108,7 +109,7 @@ func TestRunStatus(t *testing.T) {
 			ErrFake:   func() error { return errors.New("the rows error") },
 		}
 		fakeDB := &pgkit.FakeDB{
-			QueryFake: func(query string, args ...any) (pgkit.Rows, error) {
+			QueryFake: func(ctx context.Context, query string, args ...any) (pgkit.Rows, error) {
 				return fakeRows, nil
 			},
 		}

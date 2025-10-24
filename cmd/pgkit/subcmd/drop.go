@@ -1,6 +1,7 @@
 package subcmd
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -44,7 +45,7 @@ func runDrop(adminDB pgkit.DB, dbName string, forceFlag bool) error {
 
 	// Check if database exists
 	var exists bool
-	err := adminDB.QueryRow("SELECT EXISTS(SELECT 1 FROM pg_database WHERE datname = $1)", dbName).Scan(&exists)
+	err := adminDB.QueryRow(context.Background(), "SELECT EXISTS(SELECT 1 FROM pg_database WHERE datname = $1)", dbName).Scan(&exists)
 	if err != nil {
 		return fmt.Errorf("failed to check if database exists: %w", err)
 	}
@@ -54,7 +55,7 @@ func runDrop(adminDB pgkit.DB, dbName string, forceFlag bool) error {
 	}
 
 	// Drop the database
-	_, err = adminDB.Exec(fmt.Sprintf("DROP DATABASE %s", quoteIdentifier(dbName)))
+	_, err = adminDB.Exec(context.Background(), fmt.Sprintf("DROP DATABASE %s", quoteIdentifier(dbName)))
 	if err != nil {
 		return fmt.Errorf("failed to drop database: %w", err)
 	}

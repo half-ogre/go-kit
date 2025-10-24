@@ -1,6 +1,7 @@
 package subcmd
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"testing"
@@ -15,7 +16,7 @@ func TestRunCreate(t *testing.T) {
 		actualDBName := ""
 		actualExecQuery := ""
 		fakeDB := &pgkit.FakeDB{
-			QueryRowFake: func(query string, args ...any) pgkit.Row {
+			QueryRowFake: func(ctx context.Context, query string, args ...any) pgkit.Row {
 				actualQueryRowQuery = query
 				if len(args) > 0 {
 					actualDBName = args[0].(string)
@@ -29,7 +30,7 @@ func TestRunCreate(t *testing.T) {
 					},
 				}
 			},
-			ExecFake: func(query string, args ...any) (sql.Result, error) {
+			ExecFake: func(ctx context.Context, query string, args ...any) (sql.Result, error) {
 				actualExecQuery = query
 				return nil, nil
 			},
@@ -45,7 +46,7 @@ func TestRunCreate(t *testing.T) {
 
 	t.Run("returns_error_when_database_already_exists", func(t *testing.T) {
 		fakeDB := &pgkit.FakeDB{
-			QueryRowFake: func(query string, args ...any) pgkit.Row {
+			QueryRowFake: func(ctx context.Context, query string, args ...any) pgkit.Row {
 				return &pgkit.FakeRow{
 					ScanFake: func(dest ...any) error {
 						if boolPtr, ok := dest[0].(*bool); ok {
@@ -64,7 +65,7 @@ func TestRunCreate(t *testing.T) {
 
 	t.Run("returns_error_when_existence_check_fails", func(t *testing.T) {
 		fakeDB := &pgkit.FakeDB{
-			QueryRowFake: func(query string, args ...any) pgkit.Row {
+			QueryRowFake: func(ctx context.Context, query string, args ...any) pgkit.Row {
 				return &pgkit.FakeRow{
 					ScanFake: func(dest ...any) error {
 						return errors.New("the query error")
@@ -80,7 +81,7 @@ func TestRunCreate(t *testing.T) {
 
 	t.Run("returns_error_when_create_execution_fails", func(t *testing.T) {
 		fakeDB := &pgkit.FakeDB{
-			QueryRowFake: func(query string, args ...any) pgkit.Row {
+			QueryRowFake: func(ctx context.Context, query string, args ...any) pgkit.Row {
 				return &pgkit.FakeRow{
 					ScanFake: func(dest ...any) error {
 						if boolPtr, ok := dest[0].(*bool); ok {
@@ -90,7 +91,7 @@ func TestRunCreate(t *testing.T) {
 					},
 				}
 			},
-			ExecFake: func(query string, args ...any) (sql.Result, error) {
+			ExecFake: func(ctx context.Context, query string, args ...any) (sql.Result, error) {
 				return nil, errors.New("the exec error")
 			},
 		}
@@ -103,7 +104,7 @@ func TestRunCreate(t *testing.T) {
 	t.Run("quotes_database_name_with_special_characters", func(t *testing.T) {
 		actualExecQuery := ""
 		fakeDB := &pgkit.FakeDB{
-			QueryRowFake: func(query string, args ...any) pgkit.Row {
+			QueryRowFake: func(ctx context.Context, query string, args ...any) pgkit.Row {
 				return &pgkit.FakeRow{
 					ScanFake: func(dest ...any) error {
 						if boolPtr, ok := dest[0].(*bool); ok {
@@ -113,7 +114,7 @@ func TestRunCreate(t *testing.T) {
 					},
 				}
 			},
-			ExecFake: func(query string, args ...any) (sql.Result, error) {
+			ExecFake: func(ctx context.Context, query string, args ...any) (sql.Result, error) {
 				actualExecQuery = query
 				return nil, nil
 			},
