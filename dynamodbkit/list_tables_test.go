@@ -12,6 +12,7 @@ import (
 
 func TestListTables(t *testing.T) {
 	t.Run("returns_an_error_when_context_is_nil", func(t *testing.T) {
+		//lint:ignore SA1012 intentionally testing nil context handling
 		result, err := ListTables(nil)
 
 		assert.Nil(t, result)

@@ -299,6 +299,7 @@ func TestSlogRequestLogger(t *testing.T) {
 		router.Use(middleware)
 		router.GET("/test", func(c *gin.Context) {
 			// Add some context value to verify context is passed correctly
+			//lint:ignore SA1029 using string key for test simplicity
 			ctx := context.WithValue(c.Request.Context(), "test_key", "test_value")
 			c.Request = c.Request.WithContext(ctx)
 			c.Status(http.StatusOK)
