@@ -9,12 +9,26 @@ on:
 jobs:
   acceptance-tests:
     runs-on: ubuntu-latest
-    
+
     services:
       dynamodb:
         image: amazon/dynamodb-local:latest
         ports:
           - 8000:8000
+
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
     - uses: actions/checkout@v4
@@ -78,10 +92,15 @@ jobs:
           --endpoint-url http://localhost:8000 \
           --region us-east-1
 
-    - name: Run acceptance tests
+    - name: Run DynamoDB acceptance tests
       env:
         AWS_ENDPOINT_URL: http://localhost:8000
         AWS_ACCESS_KEY_ID: dummy
         AWS_SECRET_ACCESS_KEY: dummy
         AWS_DEFAULT_REGION: us-east-1
-      run: go test -count=1 -v ./... -tags=acceptance
+      run: go test -count=1 -v ./dynamodbkit/... -tags=acceptance
+
+    - name: Run pgkit acceptance tests
+      env:
+        DATABASE_URL: postgres://postgres:postgres@localhost:5432/testdb?sslmode=disable
+      run: go test -count=1 -v ./test/acceptance/pgkit/... -tags=acceptance

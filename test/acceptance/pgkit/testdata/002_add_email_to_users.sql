@@ -1,0 +1,1 @@
+ALTER TABLE test_users ADD COLUMN email VARCHAR(255);
