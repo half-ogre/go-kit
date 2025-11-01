@@ -8,12 +8,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestParse(t *testing.T) {
+func TestParseEnvFile(t *testing.T) {
 	t.Run("basic_key-value_pairs", func(t *testing.T) {
 		input := "KEY1=value1\nKEY2=value2"
 		reader := strings.NewReader(input)
 
-		result, err := parse(reader)
+		result, err := ParseEnvFile(reader)
 
 		assert.NoError(t, err)
 		assert.Len(t, result, 2)
@@ -25,7 +25,7 @@ func TestParse(t *testing.T) {
 		input := "KEY1 = value1\nKEY2=value2"
 		reader := strings.NewReader(input)
 
-		result, err := parse(reader)
+		result, err := ParseEnvFile(reader)
 
 		assert.NoError(t, err)
 		assert.Len(t, result, 2)
@@ -37,7 +37,7 @@ func TestParse(t *testing.T) {
 		input := "KEY1=\"value with spaces\"\nKEY2='single quoted'"
 		reader := strings.NewReader(input)
 
-		result, err := parse(reader)
+		result, err := ParseEnvFile(reader)
 
 		assert.NoError(t, err)
 		assert.Len(t, result, 2)
@@ -49,7 +49,7 @@ func TestParse(t *testing.T) {
 		input := "KEY1=\nKEY2=value2"
 		reader := strings.NewReader(input)
 
-		result, err := parse(reader)
+		result, err := ParseEnvFile(reader)
 
 		assert.NoError(t, err)
 		assert.Len(t, result, 2)
@@ -61,7 +61,7 @@ func TestParse(t *testing.T) {
 		input := "# This is a comment\nKEY1=value1\n# Another comment\nKEY2=value2"
 		reader := strings.NewReader(input)
 
-		result, err := parse(reader)
+		result, err := ParseEnvFile(reader)
 
 		assert.NoError(t, err)
 		assert.Len(t, result, 2)
@@ -73,7 +73,7 @@ func TestParse(t *testing.T) {
 		input := "KEY1=value1 # inline comment\nKEY2=value2"
 		reader := strings.NewReader(input)
 
-		result, err := parse(reader)
+		result, err := ParseEnvFile(reader)
 
 		assert.NoError(t, err)
 		assert.Len(t, result, 2)
@@ -85,7 +85,7 @@ func TestParse(t *testing.T) {
 		input := "export KEY1=value1\nexport KEY2=value2"
 		reader := strings.NewReader(input)
 
-		result, err := parse(reader)
+		result, err := ParseEnvFile(reader)
 
 		assert.NoError(t, err)
 		assert.Len(t, result, 2)
@@ -97,7 +97,7 @@ func TestParse(t *testing.T) {
 		input := "KEY1=\"line1\\nline2\"\nKEY2=\"test\\rtest\""
 		reader := strings.NewReader(input)
 
-		result, err := parse(reader)
+		result, err := ParseEnvFile(reader)
 
 		assert.NoError(t, err)
 		assert.Len(t, result, 2)
@@ -109,7 +109,7 @@ func TestParse(t *testing.T) {
 		input := "KEY1=\"value with \\\" quote\"\nKEY2='value with \\' quote'"
 		reader := strings.NewReader(input)
 
-		result, err := parse(reader)
+		result, err := ParseEnvFile(reader)
 
 		assert.NoError(t, err)
 		assert.Len(t, result, 2)
@@ -121,7 +121,7 @@ func TestParse(t *testing.T) {
 		input := "KEY1=value1\nKEY2=${KEY1}_expanded"
 		reader := strings.NewReader(input)
 
-		result, err := parse(reader)
+		result, err := ParseEnvFile(reader)
 
 		assert.NoError(t, err)
 		assert.Len(t, result, 2)
@@ -133,7 +133,7 @@ func TestParse(t *testing.T) {
 		input := "KEY1=value1\r\nKEY2=value2\r\n"
 		reader := strings.NewReader(input)
 
-		result, err := parse(reader)
+		result, err := ParseEnvFile(reader)
 
 		assert.NoError(t, err)
 		assert.Len(t, result, 2)
@@ -145,7 +145,7 @@ func TestParse(t *testing.T) {
 		input := "\n\nKEY1=value1\n\n\nKEY2=value2\n\n"
 		reader := strings.NewReader(input)
 
-		result, err := parse(reader)
+		result, err := ParseEnvFile(reader)
 
 		assert.NoError(t, err)
 		assert.Len(t, result, 2)
@@ -157,7 +157,7 @@ func TestParse(t *testing.T) {
 		input := "KEY1: value1\nKEY2: value2"
 		reader := strings.NewReader(input)
 
-		result, err := parse(reader)
+		result, err := ParseEnvFile(reader)
 
 		assert.NoError(t, err)
 		assert.Len(t, result, 2)
@@ -169,7 +169,7 @@ func TestParse(t *testing.T) {
 		input := "KEY_1=value1\nKEY.2=value2\nKEY3=value3"
 		reader := strings.NewReader(input)
 
-		result, err := parse(reader)
+		result, err := ParseEnvFile(reader)
 
 		assert.NoError(t, err)
 		assert.Len(t, result, 3)
@@ -184,7 +184,7 @@ func TestParseErrors(t *testing.T) {
 		input := "KEY-INVALID=value"
 		reader := strings.NewReader(input)
 
-		_, err := parse(reader)
+		_, err := ParseEnvFile(reader)
 
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "unexpected character")
@@ -194,7 +194,7 @@ func TestParseErrors(t *testing.T) {
 		input := `KEY="unterminated value`
 		reader := strings.NewReader(input)
 
-		_, err := parse(reader)
+		_, err := ParseEnvFile(reader)
 
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "unterminated quoted value")
@@ -204,7 +204,7 @@ func TestParseErrors(t *testing.T) {
 		input := `KEY='unterminated value`
 		reader := strings.NewReader(input)
 
-		_, err := parse(reader)
+		_, err := ParseEnvFile(reader)
 
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "unterminated quoted value")
