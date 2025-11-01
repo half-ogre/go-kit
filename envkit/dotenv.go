@@ -27,7 +27,7 @@ func LoadEnv(paths ...string) error {
 }
 
 func loadEnvFile(path string) error {
-	envFromFile, err := readEnvFile(path)
+	envFromFile, err := ReadEnvFile(path)
 	if err != nil {
 		return err
 	}
@@ -42,17 +42,17 @@ func loadEnvFile(path string) error {
 	return nil
 }
 
-func readEnvFile(path string) (map[string]string, error) {
+func ReadEnvFile(path string) (map[string]string, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
 
-	return parse(file)
+	return ParseEnvFile(file)
 }
 
-func parse(r io.Reader) (map[string]string, error) {
+func ParseEnvFile(r io.Reader) (map[string]string, error) {
 	var buf bytes.Buffer
 	_, err := io.Copy(&buf, r)
 	if err != nil {
