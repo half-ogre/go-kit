@@ -2,9 +2,10 @@ package echokit
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"log"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -17,44 +18,47 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-type JWTAuthenticator struct {
-	config       Auth0Config
+type EntraIDJWTAuthenticator struct {
+	tenantID     string
 	jwtValidator *validator.Validator
 }
 
-type CustomClaims struct {
+type EntraIDCustomClaims struct {
 	Permissions []string `json:"permissions"`
 	Picture     string   `json:"picture"`
-	Nickname    string   `json:"nickname"`
+	Name        string   `json:"name"`
 	Scope       string   `json:"scope"`
 }
 
-func (c CustomClaims) Validate(ctx context.Context) error {
-	return nil // Validate does nothing, but is needed to satisfy validator.CustomClaims interface
+func (c EntraIDCustomClaims) Validate(ctx context.Context) error {
+	return nil
 }
 
-type JWTAuthenticatorOption func(*JWTAuthenticator)
-
-func NewJWTAuthenticator(config Auth0Config) (*JWTAuthenticator, error) {
-	jwtAuthenticator := &JWTAuthenticator{
-		config: config,
-	}
-
-	issuerURL, err := url.Parse("https://" + config.Domain + "/")
+// NewEntraIDJWTAuthenticator creates a JWT authenticator for Microsoft Entra ID
+func NewEntraIDJWTAuthenticator(tenantID, audience string) (*EntraIDJWTAuthenticator, error) {
+	// Entra ID v1.0 issuer URL: https://sts.windows.net/{tenantId}/
+	issuerURL, err := url.Parse(fmt.Sprintf("https://sts.windows.net/%s/", tenantID))
 	if err != nil {
-		log.Fatalf("Failed to parse the issuer url: %v", err)
+		return nil, fmt.Errorf("failed to parse Entra ID issuer URL: %w", err)
 	}
 
-	provider := jwks.NewCachingProvider(issuerURL, 5*time.Minute)
+	// For JWKS discovery, use login.microsoftonline.com (where OpenID config is hosted)
+	// The provider will fetch /.well-known/openid-configuration from this URL
+	authorityURL, err := url.Parse(fmt.Sprintf("https://login.microsoftonline.com/%s", tenantID))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse authority URL: %w", err)
+	}
+
+	provider := jwks.NewCachingProvider(authorityURL, 5*time.Minute)
 
 	jwtValidator, err := validator.New(
 		provider.KeyFunc,
 		validator.RS256,
 		issuerURL.String(),
-		[]string{config.Audience},
+		[]string{audience},
 		validator.WithCustomClaims(
 			func() validator.CustomClaims {
-				return &CustomClaims{}
+				return &EntraIDCustomClaims{}
 			},
 		),
 		validator.WithAllowedClockSkew(time.Minute),
@@ -63,12 +67,13 @@ func NewJWTAuthenticator(config Auth0Config) (*JWTAuthenticator, error) {
 		return nil, err
 	}
 
-	jwtAuthenticator.jwtValidator = jwtValidator
-
-	return jwtAuthenticator, nil
+	return &EntraIDJWTAuthenticator{
+		tenantID:     tenantID,
+		jwtValidator: jwtValidator,
+	}, nil
 }
 
-func (a *JWTAuthenticator) GetAuthenticatedUser(c echo.Context) (*AuthenticatedUser, error) {
+func (a *EntraIDJWTAuthenticator) GetAuthenticatedUser(c echo.Context) (*AuthenticatedUser, error) {
 	ok, err := a.IsAuthenticated(c)
 	if err != nil {
 		return nil, kit.WrapError(err, "failed to check authentication")
@@ -78,7 +83,7 @@ func (a *JWTAuthenticator) GetAuthenticatedUser(c echo.Context) (*AuthenticatedU
 		return nil, errors.New("no authenticated user")
 	}
 
-	session, err := GetSession("fx-jwt-authenticator", c)
+	session, err := GetSession("entra-jwt-authenticator", c)
 	if err != nil {
 		return nil, kit.WrapError(err, "error getting auth session")
 	}
@@ -92,7 +97,7 @@ func (a *JWTAuthenticator) GetAuthenticatedUser(c echo.Context) (*AuthenticatedU
 		return nil, errors.New("failed to get authenticated user from session")
 	}
 
-	slog.Debug("JWTAuthenticator#GetAuthenticatedUser:has-authenticated-user", "authenticatedUserBytes", string(authenticatedUserBytes))
+	slog.Debug("EntraIDJWTAuthenticator#GetAuthenticatedUser:has-authenticated-user", "authenticatedUserBytes", string(authenticatedUserBytes))
 
 	authenticatedUser := AuthenticatedUser{}
 	err = json.Unmarshal(authenticatedUserBytes, &authenticatedUser)
@@ -101,15 +106,14 @@ func (a *JWTAuthenticator) GetAuthenticatedUser(c echo.Context) (*AuthenticatedU
 	}
 
 	return &authenticatedUser, nil
-
 }
 
-func (a *JWTAuthenticator) HandleNotAuthenticated(c echo.Context) error {
+func (a *EntraIDJWTAuthenticator) HandleNotAuthenticated(c echo.Context) error {
 	return c.NoContent(http.StatusUnauthorized)
 }
 
-func (a *JWTAuthenticator) IsAuthenticated(c echo.Context) (bool, error) {
-	session, err := GetSession("fx-jwt-authenticator", c)
+func (a *EntraIDJWTAuthenticator) IsAuthenticated(c echo.Context) (bool, error) {
+	session, err := GetSession("entra-jwt-authenticator", c)
 	if err != nil {
 		return false, kit.WrapError(err, "error getting auth session")
 	}
@@ -133,8 +137,20 @@ func (a *JWTAuthenticator) IsAuthenticated(c echo.Context) (bool, error) {
 		return false, nil
 	}
 
+	// Decode token to see claims for debugging
+	tokenString := authHeaderParts[1]
+	parts := strings.Split(tokenString, ".")
+	if len(parts) == 3 {
+		// Decode claims (base64url encoded)
+		claims, decodeErr := base64.RawURLEncoding.DecodeString(parts[1])
+		if decodeErr == nil {
+			slog.Info("JWT claims", "claims", string(claims))
+		}
+	}
+
 	validateResult, err := a.jwtValidator.ValidateToken(c.Request().Context(), authHeaderParts[1])
 	if err != nil {
+		slog.Error("JWT validation failed", "error", err)
 		return false, err
 	}
 
@@ -143,14 +159,14 @@ func (a *JWTAuthenticator) IsAuthenticated(c echo.Context) (bool, error) {
 		return false, errors.New("failed to cast to ValidatedClaims")
 	}
 
-	customClaims, ok := validatedClaims.CustomClaims.(*CustomClaims)
+	customClaims, ok := validatedClaims.CustomClaims.(*EntraIDCustomClaims)
 	if !ok {
 		return false, errors.New("failed to cast custom claims")
 	}
 
 	authenticatedUser := AuthenticatedUser{
 		Sub:       validatedClaims.RegisteredClaims.Subject,
-		Nickname:  customClaims.Nickname,
+		Nickname:  customClaims.Name,
 		AvatarUrl: customClaims.Picture,
 	}
 

@@ -82,14 +82,14 @@ go list -m github.com/half-ogre/go-kit
 
 This will show the exact commit or branch being used.
 
-## Reverting to Main
+## Reverting to Latest Release
 
-When you're done testing and want to return to the main branch:
+When you're done testing and want to return to the latest released version:
 
 ### If you used go get:
 
 ```bash
-go get github.com/half-ogre/go-kit@main
+go get github.com/half-ogre/go-kit@latest
 go mod tidy
 ```
 
@@ -100,6 +100,20 @@ Remove the `replace` directive from `go.mod`, then:
 ```bash
 go mod tidy
 ```
+
+### Bypassing the Module Proxy
+
+When reverting to the latest version, Go may use a cached version from the module proxy. To ensure you get the latest version directly from the repository, bypass the proxy:
+
+```bash
+GOPROXY=direct go get github.com/half-ogre/go-kit@latest
+go mod tidy
+```
+
+This is especially useful when:
+- A new release was just published and isn't yet in the proxy cache
+- You need to verify you're getting the most recent release
+- You're testing immediately after a version tag is pushed
 
 ## Best Practices
 
@@ -159,7 +173,7 @@ go mod tidy
 # 3. Run your tests
 go test ./...
 
-# 4. When done, revert to main
-go get github.com/half-ogre/go-kit@main
+# 4. When done, revert to latest release (bypassing proxy to get latest)
+GOPROXY=direct go get github.com/half-ogre/go-kit@latest
 go mod tidy
 ```
