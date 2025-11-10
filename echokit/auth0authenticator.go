@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	auth0AuthenticatorSessionKey = "github.com/half-ogre/go-kit/echokit/auth0-authenticator"
+	auth0AuthenticatorSessionKey = "go-kit-echokit-auth0-authenticator"
 )
 
 type Auth0Config struct {
