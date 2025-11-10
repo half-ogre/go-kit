@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	auth0JWTAuthenticatorSessionKey = "github.com/half-ogre/go-kit/echokit/auth0-jwt-authenticator"
+	auth0JWTAuthenticatorSessionKey = "go-kit-echokit-auth0-jwt-authenticator"
 )
 
 type Auth0JWTAuthenticator struct {
