@@ -79,6 +79,12 @@ func NewAuthenticationMiddleware(authenticator Authenticator, options ...Authent
 	}
 }
 
+func WithAuthenticatedUserCallback(callback func(AuthenticatedUser) error) func(*AuthenticationMiddlewareOptions) {
+	return func(options *AuthenticationMiddlewareOptions) {
+		options.AuthenticatedUserCallback = callback
+	}
+}
+
 func GetAuthenticator(c echo.Context) (Authenticator, error) {
 	o := c.Get(authenticatorContextKey)
 	if o == nil {
