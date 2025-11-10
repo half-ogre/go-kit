@@ -11,6 +11,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.36.0
 	github.com/coreos/go-oidc/v3 v3.14.1
 	github.com/gin-gonic/gin v1.10.1
+	github.com/go-playground/validator/v10 v10.20.0
 	github.com/gorilla/context v1.1.2
 	github.com/gorilla/sessions v1.4.0
 	github.com/jackc/pgx/v5 v5.7.6
@@ -45,7 +46,6 @@ require (
 	github.com/go-jose/go-jose/v4 v4.0.5 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
-	github.com/go-playground/validator/v10 v10.20.0 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/gorilla/securecookie v1.1.2 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
