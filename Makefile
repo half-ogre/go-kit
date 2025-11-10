@@ -20,7 +20,7 @@ help:
 	@echo "acceptance-dynamodbkit - Run DynamoDB acceptance tests"
 	@echo "acceptance-pgkit      - Run pgkit acceptance tests"
 
-build:
+build: tidy fmt
 	go build ./...
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")

@@ -17,16 +17,27 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+const (
+	auth0JWTAuthenticatorSessionKey = "github.com/half-ogre/go-kit/echokit/auth0-jwt-authenticator"
+)
+
 type Auth0JWTAuthenticator struct {
 	config       Auth0Config
 	jwtValidator *validator.Validator
 }
 
 type Auth0CustomClaims struct {
-	Permissions []string `json:"permissions"`
-	Picture     string   `json:"picture"`
-	Nickname    string   `json:"nickname"`
-	Scope       string   `json:"scope"`
+	Name              string   `json:"name"`
+	GivenName         string   `json:"given_name"`
+	FamilyName        string   `json:"family_name"`
+	MiddleName        string   `json:"middle_name"`
+	Nickname          string   `json:"nickname"`
+	PreferredUsername string   `json:"preferred_username"`
+	Email             string   `json:"email"`
+	EmailVerified     bool     `json:"email_verified"`
+	Picture           string   `json:"picture"`
+	UpdatedAt         int64    `json:"updated_at"`
+	Permissions       []string `json:"permissions"`
 }
 
 func (c Auth0CustomClaims) Validate(ctx context.Context) error {
@@ -35,7 +46,7 @@ func (c Auth0CustomClaims) Validate(ctx context.Context) error {
 
 type Auth0JWTAuthenticatorOption func(*Auth0JWTAuthenticator)
 
-func NewAuth0JWTAuthenticator(config Auth0Config) (*Auth0JWTAuthenticator, error) {
+func NewAuth0JWTAuthenticator(config Auth0Config) (Authenticator, error) {
 	jwtAuthenticator := &Auth0JWTAuthenticator{
 		config: config,
 	}
@@ -68,6 +79,76 @@ func NewAuth0JWTAuthenticator(config Auth0Config) (*Auth0JWTAuthenticator, error
 	return jwtAuthenticator, nil
 }
 
+func (a *Auth0JWTAuthenticator) AuthenticateRequest(c echo.Context) error {
+	session, err := GetSession(auth0JWTAuthenticatorSessionKey, c)
+	if err != nil {
+		return kit.WrapError(err, "error getting auth session")
+	}
+
+	if session == nil {
+		return errors.New("failed to get auth session")
+	}
+
+	_, ok := session.Values["authenticated-user"]
+	if ok {
+		return nil
+	}
+
+	authHeader := c.Request().Header.Get("Authorization")
+	if authHeader == "" {
+		return nil
+	}
+
+	authHeaderParts := strings.Fields(authHeader)
+	if len(authHeaderParts) != 2 || strings.ToLower(authHeaderParts[0]) != "bearer" {
+		return nil
+	}
+
+	validateResult, err := a.jwtValidator.ValidateToken(c.Request().Context(), authHeaderParts[1])
+	if err != nil {
+		return err
+	}
+
+	validatedClaims, ok := validateResult.(*validator.ValidatedClaims)
+	if !ok {
+		return errors.New("failed to cast to ValidatedClaims")
+	}
+
+	customClaims, ok := validatedClaims.CustomClaims.(*Auth0CustomClaims)
+	if !ok {
+		return errors.New("failed to cast custom claims")
+	}
+
+	authenticatedUser := AuthenticatedUser{
+		Sub:               validatedClaims.RegisteredClaims.Subject,
+		Name:              customClaims.Name,
+		GivenName:         customClaims.GivenName,
+		FamilyName:        customClaims.FamilyName,
+		MiddleName:        customClaims.MiddleName,
+		Nickname:          customClaims.Nickname,
+		PreferredUsername: customClaims.PreferredUsername,
+		Email:             customClaims.Email,
+		EmailVerified:     customClaims.EmailVerified,
+		Picture:           customClaims.Picture,
+		UpdatedAt:         customClaims.UpdatedAt,
+		Permissions:       customClaims.Permissions,
+	}
+
+	authenticatedUserBytes, err := json.Marshal(authenticatedUser)
+	if err != nil {
+		return kit.WrapError(err, "failed to marshal authenticated user")
+	}
+
+	session.Values["authenticated-user"] = authenticatedUserBytes
+
+	err = session.Save(c.Request(), c.Response().Writer)
+	if err != nil {
+		return kit.WrapError(err, "failed to save claims to session")
+	}
+
+	return nil
+}
+
 func (a *Auth0JWTAuthenticator) GetAuthenticatedUser(c echo.Context) (*AuthenticatedUser, error) {
 	ok, err := a.IsAuthenticated(c)
 	if err != nil {
@@ -78,7 +159,7 @@ func (a *Auth0JWTAuthenticator) GetAuthenticatedUser(c echo.Context) (*Authentic
 		return nil, errors.New("no authenticated user")
 	}
 
-	session, err := GetSession("fx-jwt-authenticator", c)
+	session, err := GetSession(auth0JWTAuthenticatorSessionKey, c)
 	if err != nil {
 		return nil, kit.WrapError(err, "error getting auth session")
 	}
@@ -109,7 +190,7 @@ func (a *Auth0JWTAuthenticator) HandleNotAuthenticated(c echo.Context) error {
 }
 
 func (a *Auth0JWTAuthenticator) IsAuthenticated(c echo.Context) (bool, error) {
-	session, err := GetSession("fx-jwt-authenticator", c)
+	session, err := GetSession(auth0JWTAuthenticatorSessionKey, c)
 	if err != nil {
 		return false, kit.WrapError(err, "error getting auth session")
 	}
@@ -119,52 +200,5 @@ func (a *Auth0JWTAuthenticator) IsAuthenticated(c echo.Context) (bool, error) {
 	}
 
 	_, ok := session.Values["authenticated-user"]
-	if ok {
-		return true, nil
-	}
-
-	authHeader := c.Request().Header.Get("Authorization")
-	if authHeader == "" {
-		return false, nil
-	}
-
-	authHeaderParts := strings.Fields(authHeader)
-	if len(authHeaderParts) != 2 || strings.ToLower(authHeaderParts[0]) != "bearer" {
-		return false, nil
-	}
-
-	validateResult, err := a.jwtValidator.ValidateToken(c.Request().Context(), authHeaderParts[1])
-	if err != nil {
-		return false, err
-	}
-
-	validatedClaims, ok := validateResult.(*validator.ValidatedClaims)
-	if !ok {
-		return false, errors.New("failed to cast to ValidatedClaims")
-	}
-
-	customClaims, ok := validatedClaims.CustomClaims.(*Auth0CustomClaims)
-	if !ok {
-		return false, errors.New("failed to cast custom claims")
-	}
-
-	authenticatedUser := AuthenticatedUser{
-		Sub:       validatedClaims.RegisteredClaims.Subject,
-		Nickname:  customClaims.Nickname,
-		AvatarUrl: customClaims.Picture,
-	}
-
-	authenticatedUserBytes, err := json.Marshal(authenticatedUser)
-	if err != nil {
-		return false, kit.WrapError(err, "failed to marshal authenticated user")
-	}
-
-	session.Values["authenticated-user"] = authenticatedUserBytes
-
-	err = session.Save(c.Request(), c.Response().Writer)
-	if err != nil {
-		return false, kit.WrapError(err, "failed to save claims to session")
-	}
-
-	return true, nil
+	return ok, nil
 }
