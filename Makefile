@@ -39,9 +39,6 @@ build-pgkit:
 test: tidy fmt vet staticcheck
 	go test -v ./... -tags=!acceptance
 
-staticcheck:
-	staticcheck ./...
-
 fmt:
 	gofmt -s -l -w .
 
