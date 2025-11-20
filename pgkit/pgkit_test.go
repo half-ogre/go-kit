@@ -386,3 +386,51 @@ func TestParseMigrationVersion(t *testing.T) {
 		assert.Equal(t, 42, version)
 	})
 }
+
+func TestListMigrations(t *testing.T) {
+	t.Run("returns_all_migrations_from_directory", func(t *testing.T) {
+		migrations, err := ListMigrations("testdata")
+
+		assert.NoError(t, err)
+		assert.Len(t, migrations, 2)
+		assert.Equal(t, 1, migrations[0].Version)
+		assert.Equal(t, "initial", migrations[0].Description)
+		assert.Equal(t, "001_initial.sql", migrations[0].Filename)
+		assert.Equal(t, 2, migrations[1].Version)
+		assert.Equal(t, "add_email", migrations[1].Description)
+		assert.Equal(t, "002_add_email.sql", migrations[1].Filename)
+	})
+
+	t.Run("returns_migrations_sorted_by_version", func(t *testing.T) {
+		migrations, err := ListMigrations("testdata")
+
+		assert.NoError(t, err)
+		assert.Len(t, migrations, 2)
+		// Verify they're sorted
+		for i := 0; i < len(migrations)-1; i++ {
+			assert.Less(t, migrations[i].Version, migrations[i+1].Version)
+		}
+	})
+
+	t.Run("returns_error_when_directory_path_is_empty", func(t *testing.T) {
+		migrations, err := ListMigrations("")
+
+		assert.Nil(t, migrations)
+		assert.EqualError(t, err, "directory path cannot be empty")
+	})
+
+	t.Run("returns_error_when_directory_does_not_exist", func(t *testing.T) {
+		migrations, err := ListMigrations("nonexistent")
+
+		assert.Nil(t, migrations)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to read migration directory")
+	})
+
+	t.Run("returns_empty_list_when_directory_has_no_sql_files", func(t *testing.T) {
+		migrations, err := ListMigrations(".")
+
+		assert.NoError(t, err)
+		assert.Empty(t, migrations)
+	})
+}

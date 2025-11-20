@@ -13,6 +13,13 @@ import (
 	"github.com/half-ogre/go-kit/kit"
 )
 
+// Migration represents a database migration file
+type Migration struct {
+	Version     int
+	Description string
+	Filename    string
+}
+
 // Migrator is an interface for running database migrations
 type Migrator interface {
 	RunMigrations(db DB, dirPath string) error
@@ -45,6 +52,67 @@ func parseMigrationVersion(filename string) (int, error) {
 	}
 
 	return version, nil
+}
+
+// parseMigration parses a migration filename into a Migration struct
+// Expected format: {number}_{description}.sql
+func parseMigration(filename string) (Migration, error) {
+	// Remove .sql extension
+	nameWithoutExt := strings.TrimSuffix(filename, ".sql")
+	if nameWithoutExt == filename {
+		return Migration{}, fmt.Errorf("migration file must have .sql extension")
+	}
+
+	// Split on underscore
+	parts := strings.SplitN(nameWithoutExt, "_", 2)
+	if len(parts) < 2 {
+		return Migration{}, fmt.Errorf("migration filename must be in format: {number}_{description}.sql")
+	}
+
+	// Parse the version number
+	version, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return Migration{}, fmt.Errorf("migration filename must start with a number: %w", err)
+	}
+
+	return Migration{
+		Version:     version,
+		Description: parts[1],
+		Filename:    filename,
+	}, nil
+}
+
+// ListMigrations returns a list of all migrations in the specified directory
+func ListMigrations(dirPath string) ([]Migration, error) {
+	if dirPath == "" {
+		return nil, fmt.Errorf("directory path cannot be empty")
+	}
+
+	migrationsFS := os.DirFS(dirPath)
+
+	// Get all migration files
+	entries, err := fs.ReadDir(migrationsFS, ".")
+	if err != nil {
+		return nil, kit.WrapError(err, "failed to read migration directory")
+	}
+
+	var migrations []Migration
+	for _, entry := range entries {
+		if !entry.IsDir() && filepath.Ext(entry.Name()) == ".sql" {
+			migration, err := parseMigration(entry.Name())
+			if err != nil {
+				return nil, kit.WrapError(err, "invalid migration filename: %s", entry.Name())
+			}
+			migrations = append(migrations, migration)
+		}
+	}
+
+	// Sort by version number
+	sort.Slice(migrations, func(i, j int) bool {
+		return migrations[i].Version < migrations[j].Version
+	})
+
+	return migrations, nil
 }
 
 func (m *migrator) RunMigrations(db DB, dirPath string) error {
