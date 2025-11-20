@@ -229,6 +229,188 @@ func TestRunMigrations(t *testing.T) {
 	})
 }
 
+func TestRunMigrationsToVersion(t *testing.T) {
+	if os.Getenv("DATABASE_URL") == "" {
+		t.Skip("Skipping acceptance test - DATABASE_URL not set")
+	}
+
+	dbURL := os.Getenv("DATABASE_URL")
+
+	t.Run("applies_migrations_up_to_specified_version", func(t *testing.T) {
+		db := setupTestDB(t, dbURL)
+		defer db.Close()
+
+		migrator := pgkit.NewMigrator()
+		err := migrator.RunMigrationsToVersion(db, "testdata", 2)
+
+		require.NoError(t, err)
+		var migrationCount int
+		err = db.QueryRow(context.Background(), "SELECT COUNT(*) FROM pgkit_migrations").Scan(&migrationCount)
+		require.NoError(t, err)
+		assert.Equal(t, 2, migrationCount, "should have exactly 2 migrations applied")
+		rows, err := db.Query(context.Background(), "SELECT filename FROM pgkit_migrations ORDER BY id")
+		require.NoError(t, err)
+		defer rows.Close()
+		expectedFiles := []string{
+			"001_create_users.sql",
+			"002_add_email_to_users.sql",
+		}
+		var actualFiles []string
+		for rows.Next() {
+			var filename string
+			err := rows.Scan(&filename)
+			require.NoError(t, err)
+			actualFiles = append(actualFiles, filename)
+		}
+		assert.Equal(t, expectedFiles, actualFiles, "should only apply migrations up to version 2")
+	})
+
+	t.Run("creates_partial_schema_up_to_version", func(t *testing.T) {
+		db := setupTestDB(t, dbURL)
+		defer db.Close()
+
+		migrator := pgkit.NewMigrator()
+		err := migrator.RunMigrationsToVersion(db, "testdata", 2)
+
+		require.NoError(t, err)
+		var tableExists bool
+		err = db.QueryRow(context.Background(), `
+			SELECT EXISTS (
+				SELECT FROM information_schema.tables
+				WHERE table_name = 'test_users'
+			)
+		`).Scan(&tableExists)
+		require.NoError(t, err)
+		assert.True(t, tableExists, "test_users table should exist")
+		var columnNames []string
+		rows, err := db.Query(context.Background(), `
+			SELECT column_name
+			FROM information_schema.columns
+			WHERE table_name = 'test_users'
+			ORDER BY ordinal_position
+		`)
+		require.NoError(t, err)
+		defer rows.Close()
+		for rows.Next() {
+			var colName string
+			err := rows.Scan(&colName)
+			require.NoError(t, err)
+			columnNames = append(columnNames, colName)
+		}
+		expectedColumns := []string{"id", "name", "created_at", "email"}
+		assert.Equal(t, expectedColumns, columnNames, "test_users should have columns up to version 2")
+		var indexExists bool
+		err = db.QueryRow(context.Background(), `
+			SELECT EXISTS (
+				SELECT FROM pg_indexes
+				WHERE tablename = 'test_users' AND indexname = 'idx_test_users_email'
+			)
+		`).Scan(&indexExists)
+		require.NoError(t, err)
+		assert.False(t, indexExists, "email index should not exist yet (added in version 3)")
+	})
+
+	t.Run("stops_at_target_version_when_already_applied", func(t *testing.T) {
+		db := setupTestDB(t, dbURL)
+		defer db.Close()
+		migrator := pgkit.NewMigrator()
+		err := migrator.RunMigrationsToVersion(db, "testdata", 3)
+		require.NoError(t, err)
+		var countBefore int
+		err = db.QueryRow(context.Background(), "SELECT COUNT(*) FROM pgkit_migrations").Scan(&countBefore)
+		require.NoError(t, err)
+
+		err = migrator.RunMigrationsToVersion(db, "testdata", 2)
+
+		require.NoError(t, err)
+		var countAfter int
+		err = db.QueryRow(context.Background(), "SELECT COUNT(*) FROM pgkit_migrations").Scan(&countAfter)
+		require.NoError(t, err)
+		assert.Equal(t, countBefore, countAfter, "should not apply any new migrations when target version already applied")
+	})
+
+	t.Run("can_apply_first_migration_only", func(t *testing.T) {
+		db := setupTestDB(t, dbURL)
+		defer db.Close()
+
+		migrator := pgkit.NewMigrator()
+		err := migrator.RunMigrationsToVersion(db, "testdata", 1)
+
+		require.NoError(t, err)
+		var migrationCount int
+		err = db.QueryRow(context.Background(), "SELECT COUNT(*) FROM pgkit_migrations").Scan(&migrationCount)
+		require.NoError(t, err)
+		assert.Equal(t, 1, migrationCount, "should have exactly 1 migration applied")
+		var tableExists bool
+		err = db.QueryRow(context.Background(), `
+			SELECT EXISTS (
+				SELECT FROM information_schema.tables
+				WHERE table_name = 'test_users'
+			)
+		`).Scan(&tableExists)
+		require.NoError(t, err)
+		assert.True(t, tableExists, "test_users table should exist")
+		var hasEmailColumn bool
+		err = db.QueryRow(context.Background(), `
+			SELECT EXISTS (
+				SELECT FROM information_schema.columns
+				WHERE table_name = 'test_users' AND column_name = 'email'
+			)
+		`).Scan(&hasEmailColumn)
+		require.NoError(t, err)
+		assert.False(t, hasEmailColumn, "email column should not exist yet (added in version 2)")
+	})
+
+	t.Run("returns_error_when_version_not_found", func(t *testing.T) {
+		db := setupTestDB(t, dbURL)
+		defer db.Close()
+
+		migrator := pgkit.NewMigrator()
+		err := migrator.RunMigrationsToVersion(db, "testdata", 999)
+
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "migration with version 999 not found")
+	})
+
+	t.Run("returns_error_when_toVersion_is_zero", func(t *testing.T) {
+		db := setupTestDB(t, dbURL)
+		defer db.Close()
+
+		migrator := pgkit.NewMigrator()
+		err := migrator.RunMigrationsToVersion(db, "testdata", 0)
+
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "toVersion must be greater than 0")
+	})
+
+	t.Run("returns_error_when_toVersion_is_negative", func(t *testing.T) {
+		db := setupTestDB(t, dbURL)
+		defer db.Close()
+
+		migrator := pgkit.NewMigrator()
+		err := migrator.RunMigrationsToVersion(db, "testdata", -1)
+
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "toVersion must be greater than 0")
+	})
+
+	t.Run("is_idempotent_when_run_multiple_times_with_same_version", func(t *testing.T) {
+		db := setupTestDB(t, dbURL)
+		defer db.Close()
+
+		migrator := pgkit.NewMigrator()
+		for i := 0; i < 3; i++ {
+			err := migrator.RunMigrationsToVersion(db, "testdata", 2)
+			require.NoError(t, err, "run %d should succeed", i+1)
+		}
+
+		var migrationCount int
+		err := db.QueryRow(context.Background(), "SELECT COUNT(*) FROM pgkit_migrations").Scan(&migrationCount)
+		require.NoError(t, err)
+		assert.Equal(t, 2, migrationCount, "should have exactly 2 migrations after multiple runs")
+	})
+}
+
 // setupTestDB creates a fresh test database for each test
 func setupTestDB(t *testing.T, dbURL string) pgkit.DB {
 	t.Helper()
