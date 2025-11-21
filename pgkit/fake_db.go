@@ -89,6 +89,7 @@ func (f *FakeDB) Close() error {
 type FakeMigrator struct {
 	RunMigrationsFake          func(db DB, dirPath string) error
 	RunMigrationsToVersionFake func(db DB, dirPath string, toVersion int) error
+	ListMigrationsFake         func(db DB, dirPath string) ([]Migration, error)
 }
 
 func (f *FakeMigrator) RunMigrations(db DB, dirPath string) error {
@@ -103,4 +104,11 @@ func (f *FakeMigrator) RunMigrationsToVersion(db DB, dirPath string, toVersion i
 		return f.RunMigrationsToVersionFake(db, dirPath, toVersion)
 	}
 	panic("RunMigrationsToVersion fake not implemented")
+}
+
+func (f *FakeMigrator) ListMigrations(db DB, dirPath string) ([]Migration, error) {
+	if f.ListMigrationsFake != nil {
+		return f.ListMigrationsFake(db, dirPath)
+	}
+	panic("ListMigrations fake not implemented")
 }

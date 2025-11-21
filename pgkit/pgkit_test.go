@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -387,40 +388,43 @@ func TestParseMigrationVersion(t *testing.T) {
 	})
 }
 
-func TestListMigrations(t *testing.T) {
+func TestListMigrationsFromDir(t *testing.T) {
 	t.Run("returns_all_migrations_from_directory", func(t *testing.T) {
-		migrations, err := ListMigrations("testdata")
+		migrations, err := ListMigrationsFromDir("testdata")
 
 		assert.NoError(t, err)
 		assert.Len(t, migrations, 2)
 		assert.Equal(t, 1, migrations[0].Version)
 		assert.Equal(t, "initial", migrations[0].Description)
 		assert.Equal(t, "001_initial.sql", migrations[0].Filename)
+		assert.False(t, migrations[0].Applied)
+		assert.Nil(t, migrations[0].AppliedAt)
 		assert.Equal(t, 2, migrations[1].Version)
 		assert.Equal(t, "add_email", migrations[1].Description)
 		assert.Equal(t, "002_add_email.sql", migrations[1].Filename)
+		assert.False(t, migrations[1].Applied)
+		assert.Nil(t, migrations[1].AppliedAt)
 	})
 
 	t.Run("returns_migrations_sorted_by_version", func(t *testing.T) {
-		migrations, err := ListMigrations("testdata")
+		migrations, err := ListMigrationsFromDir("testdata")
 
 		assert.NoError(t, err)
 		assert.Len(t, migrations, 2)
-		// Verify they're sorted
 		for i := 0; i < len(migrations)-1; i++ {
 			assert.Less(t, migrations[i].Version, migrations[i+1].Version)
 		}
 	})
 
 	t.Run("returns_error_when_directory_path_is_empty", func(t *testing.T) {
-		migrations, err := ListMigrations("")
+		migrations, err := ListMigrationsFromDir("")
 
 		assert.Nil(t, migrations)
 		assert.EqualError(t, err, "directory path cannot be empty")
 	})
 
 	t.Run("returns_error_when_directory_does_not_exist", func(t *testing.T) {
-		migrations, err := ListMigrations("nonexistent")
+		migrations, err := ListMigrationsFromDir("nonexistent")
 
 		assert.Nil(t, migrations)
 		assert.Error(t, err)
@@ -428,7 +432,211 @@ func TestListMigrations(t *testing.T) {
 	})
 
 	t.Run("returns_empty_list_when_directory_has_no_sql_files", func(t *testing.T) {
-		migrations, err := ListMigrations(".")
+		migrations, err := ListMigrationsFromDir(".")
+
+		assert.NoError(t, err)
+		assert.Empty(t, migrations)
+	})
+}
+
+func TestListMigrations(t *testing.T) {
+	t.Run("returns_all_migrations_from_directory_with_applied_status_and_timestamps", func(t *testing.T) {
+		appliedTime := time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC)
+		nextCallCount := 0
+		fakeRows := &FakeRows{
+			NextFake: func() bool {
+				nextCallCount++
+				return nextCallCount <= 1
+			},
+			ScanFake: func(dest ...any) error {
+				*dest[0].(*string) = "001_initial.sql"
+				*dest[1].(*time.Time) = appliedTime
+				return nil
+			},
+			CloseFake: func() error { return nil },
+			ErrFake:   func() error { return nil },
+		}
+		fakeDB := &FakeDB{
+			ExecFake: func(ctx context.Context, query string, args ...any) (sql.Result, error) {
+				return nil, nil
+			},
+			QueryFake: func(ctx context.Context, query string, args ...any) (Rows, error) {
+				return fakeRows, nil
+			},
+		}
+
+		migrator := NewMigrator()
+		migrations, err := migrator.ListMigrations(fakeDB, "testdata")
+
+		assert.NoError(t, err)
+		assert.Len(t, migrations, 2)
+		assert.Equal(t, 1, migrations[0].Version)
+		assert.Equal(t, "initial", migrations[0].Description)
+		assert.Equal(t, "001_initial.sql", migrations[0].Filename)
+		assert.True(t, migrations[0].Applied)
+		assert.NotNil(t, migrations[0].AppliedAt)
+		assert.Equal(t, appliedTime, *migrations[0].AppliedAt)
+		assert.Equal(t, 2, migrations[1].Version)
+		assert.Equal(t, "add_email", migrations[1].Description)
+		assert.Equal(t, "002_add_email.sql", migrations[1].Filename)
+		assert.False(t, migrations[1].Applied)
+		assert.Nil(t, migrations[1].AppliedAt)
+	})
+
+	t.Run("returns_migrations_sorted_by_version", func(t *testing.T) {
+		fakeRows := &FakeRows{
+			NextFake:  func() bool { return false },
+			CloseFake: func() error { return nil },
+			ErrFake:   func() error { return nil },
+		}
+		fakeDB := &FakeDB{
+			ExecFake: func(ctx context.Context, query string, args ...any) (sql.Result, error) {
+				return nil, nil
+			},
+			QueryFake: func(ctx context.Context, query string, args ...any) (Rows, error) {
+				return fakeRows, nil
+			},
+		}
+
+		migrator := NewMigrator()
+		migrations, err := migrator.ListMigrations(fakeDB, "testdata")
+
+		assert.NoError(t, err)
+		assert.Len(t, migrations, 2)
+		for i := 0; i < len(migrations)-1; i++ {
+			assert.Less(t, migrations[i].Version, migrations[i+1].Version)
+		}
+	})
+
+	t.Run("returns_error_when_database_connection_is_nil", func(t *testing.T) {
+		migrator := NewMigrator()
+		migrations, err := migrator.ListMigrations(nil, "testdata")
+
+		assert.Nil(t, migrations)
+		assert.EqualError(t, err, "database connection cannot be nil")
+	})
+
+	t.Run("returns_error_when_directory_path_is_empty", func(t *testing.T) {
+		fakeDB := &FakeDB{}
+
+		migrator := NewMigrator()
+		migrations, err := migrator.ListMigrations(fakeDB, "")
+
+		assert.Nil(t, migrations)
+		assert.EqualError(t, err, "directory path cannot be empty")
+	})
+
+	t.Run("returns_error_when_creating_migrations_table_fails", func(t *testing.T) {
+		fakeDB := &FakeDB{
+			ExecFake: func(ctx context.Context, query string, args ...any) (sql.Result, error) {
+				return nil, assert.AnError
+			},
+		}
+
+		migrator := NewMigrator()
+		migrations, err := migrator.ListMigrations(fakeDB, "testdata")
+
+		assert.Nil(t, migrations)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to create pgkit_migrations table")
+	})
+
+	t.Run("returns_error_when_directory_does_not_exist", func(t *testing.T) {
+		fakeDB := &FakeDB{
+			ExecFake: func(ctx context.Context, query string, args ...any) (sql.Result, error) {
+				return nil, nil
+			},
+		}
+
+		migrator := NewMigrator()
+		migrations, err := migrator.ListMigrations(fakeDB, "nonexistent")
+
+		assert.Nil(t, migrations)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to read migration directory")
+	})
+
+	t.Run("returns_error_when_querying_applied_migrations_fails", func(t *testing.T) {
+		fakeDB := &FakeDB{
+			ExecFake: func(ctx context.Context, query string, args ...any) (sql.Result, error) {
+				return nil, nil
+			},
+			QueryFake: func(ctx context.Context, query string, args ...any) (Rows, error) {
+				return nil, assert.AnError
+			},
+		}
+
+		migrator := NewMigrator()
+		migrations, err := migrator.ListMigrations(fakeDB, "testdata")
+
+		assert.Nil(t, migrations)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to query applied migrations")
+	})
+
+	t.Run("returns_error_when_scanning_migration_rows_fails", func(t *testing.T) {
+		fakeRows := &FakeRows{
+			NextFake:  func() bool { return true },
+			ScanFake:  func(dest ...any) error { return assert.AnError },
+			CloseFake: func() error { return nil },
+		}
+		fakeDB := &FakeDB{
+			ExecFake: func(ctx context.Context, query string, args ...any) (sql.Result, error) {
+				return nil, nil
+			},
+			QueryFake: func(ctx context.Context, query string, args ...any) (Rows, error) {
+				return fakeRows, nil
+			},
+		}
+
+		migrator := NewMigrator()
+		migrations, err := migrator.ListMigrations(fakeDB, "testdata")
+
+		assert.Nil(t, migrations)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to scan migration row")
+	})
+
+	t.Run("returns_error_when_rows_err_returns_error", func(t *testing.T) {
+		fakeRows := &FakeRows{
+			NextFake:  func() bool { return false },
+			CloseFake: func() error { return nil },
+			ErrFake:   func() error { return assert.AnError },
+		}
+		fakeDB := &FakeDB{
+			ExecFake: func(ctx context.Context, query string, args ...any) (sql.Result, error) {
+				return nil, nil
+			},
+			QueryFake: func(ctx context.Context, query string, args ...any) (Rows, error) {
+				return fakeRows, nil
+			},
+		}
+
+		migrator := NewMigrator()
+		migrations, err := migrator.ListMigrations(fakeDB, "testdata")
+
+		assert.Nil(t, migrations)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "error iterating migration rows")
+	})
+
+	t.Run("returns_empty_list_when_directory_has_no_sql_files", func(t *testing.T) {
+		fakeRows := &FakeRows{
+			NextFake:  func() bool { return false },
+			CloseFake: func() error { return nil },
+			ErrFake:   func() error { return nil },
+		}
+		fakeDB := &FakeDB{
+			ExecFake: func(ctx context.Context, query string, args ...any) (sql.Result, error) {
+				return nil, nil
+			},
+			QueryFake: func(ctx context.Context, query string, args ...any) (Rows, error) {
+				return fakeRows, nil
+			},
+		}
+
+		migrator := NewMigrator()
+		migrations, err := migrator.ListMigrations(fakeDB, ".")
 
 		assert.NoError(t, err)
 		assert.Empty(t, migrations)

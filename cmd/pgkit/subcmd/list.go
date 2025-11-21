@@ -21,9 +21,9 @@ func init() {
 	listCmd.Flags().StringVarP(&migrationsDir, "dir", "d", "migrations", "Directory containing migration files")
 }
 
-// runList contains the main logic for listing migrations
+// runList contains the main logic for listing migrations from the directory
 func runList(dir string) error {
-	migrations, err := pgkit.ListMigrations(dir)
+	migrations, err := pgkit.ListMigrationsFromDir(dir)
 	if err != nil {
 		return fmt.Errorf("failed to list migrations: %w", err)
 	}
