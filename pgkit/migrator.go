@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/half-ogre/go-kit/kit"
 )
@@ -18,12 +19,15 @@ type Migration struct {
 	Version     int
 	Description string
 	Filename    string
+	Applied     bool
+	AppliedAt   *time.Time
 }
 
 // Migrator is an interface for running database migrations
 type Migrator interface {
 	RunMigrations(db DB, dirPath string) error
 	RunMigrationsToVersion(db DB, dirPath string, toVersion int) error
+	ListMigrations(db DB, dirPath string) ([]Migration, error)
 }
 
 // migrator implements Migrator
@@ -82,8 +86,8 @@ func parseMigration(filename string) (Migration, error) {
 	}, nil
 }
 
-// ListMigrations returns a list of all migrations in the specified directory
-func ListMigrations(dirPath string) ([]Migration, error) {
+// ListMigrationsFromDir returns a list of migrations from a directory without checking applied status
+func ListMigrationsFromDir(dirPath string) ([]Migration, error) {
 	if dirPath == "" {
 		return nil, fmt.Errorf("directory path cannot be empty")
 	}
@@ -111,6 +115,81 @@ func ListMigrations(dirPath string) ([]Migration, error) {
 	sort.Slice(migrations, func(i, j int) bool {
 		return migrations[i].Version < migrations[j].Version
 	})
+
+	return migrations, nil
+}
+
+func (m *migrator) ListMigrations(db DB, dirPath string) ([]Migration, error) {
+	if db == nil {
+		return nil, fmt.Errorf("database connection cannot be nil")
+	}
+	if dirPath == "" {
+		return nil, fmt.Errorf("directory path cannot be empty")
+	}
+
+	migrationsFS := os.DirFS(dirPath)
+
+	// Create migrations tracking table if it doesn't exist
+	_, err := db.Exec(context.Background(), `
+		CREATE TABLE IF NOT EXISTS pgkit_migrations (
+			id SERIAL PRIMARY KEY,
+			filename VARCHAR(255) UNIQUE NOT NULL,
+			applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		)
+	`)
+	if err != nil {
+		return nil, kit.WrapError(err, "failed to create pgkit_migrations table")
+	}
+
+	// Get all migration files from directory
+	entries, err := fs.ReadDir(migrationsFS, ".")
+	if err != nil {
+		return nil, kit.WrapError(err, "failed to read migration directory")
+	}
+
+	var migrations []Migration
+	for _, entry := range entries {
+		if !entry.IsDir() && filepath.Ext(entry.Name()) == ".sql" {
+			migration, err := parseMigration(entry.Name())
+			if err != nil {
+				return nil, kit.WrapError(err, "invalid migration filename: %s", entry.Name())
+			}
+			migrations = append(migrations, migration)
+		}
+	}
+
+	// Sort by version number
+	sort.Slice(migrations, func(i, j int) bool {
+		return migrations[i].Version < migrations[j].Version
+	})
+
+	// Get all applied migrations with timestamps
+	rows, err := db.Query(context.Background(), "SELECT filename, applied_at FROM pgkit_migrations")
+	if err != nil {
+		return nil, kit.WrapError(err, "failed to query applied migrations")
+	}
+	defer rows.Close()
+
+	appliedMigrations := make(map[string]time.Time)
+	for rows.Next() {
+		var filename string
+		var appliedAt time.Time
+		if err := rows.Scan(&filename, &appliedAt); err != nil {
+			return nil, kit.WrapError(err, "failed to scan migration row")
+		}
+		appliedMigrations[filename] = appliedAt
+	}
+	if err := rows.Err(); err != nil {
+		return nil, kit.WrapError(err, "error iterating migration rows")
+	}
+
+	// Mark migrations as applied and set timestamps
+	for i := range migrations {
+		if appliedAt, found := appliedMigrations[migrations[i].Filename]; found {
+			migrations[i].Applied = true
+			migrations[i].AppliedAt = &appliedAt
+		}
+	}
 
 	return migrations, nil
 }
