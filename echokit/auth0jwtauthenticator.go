@@ -2,10 +2,8 @@ package echokit
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"log"
-	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
@@ -13,12 +11,11 @@ import (
 
 	"github.com/auth0/go-jwt-middleware/v2/jwks"
 	"github.com/auth0/go-jwt-middleware/v2/validator"
-	"github.com/half-ogre/go-kit/kit"
 	"github.com/labstack/echo/v4"
 )
 
 const (
-	auth0JWTAuthenticatorSessionKey = "go-kit-echokit-auth0-jwt-authenticator"
+	auth0JWTAuthenticatorContextKey = "go-kit-echokit-auth0-jwt-authenticated-user"
 )
 
 type Auth0JWTAuthenticator struct {
@@ -80,20 +77,6 @@ func NewAuth0JWTAuthenticator(config Auth0Config) (Authenticator, error) {
 }
 
 func (a *Auth0JWTAuthenticator) AuthenticateRequest(c echo.Context) error {
-	session, err := GetSession(auth0JWTAuthenticatorSessionKey, c)
-	if err != nil {
-		return kit.WrapError(err, "error getting auth session")
-	}
-
-	if session == nil {
-		return errors.New("failed to get auth session")
-	}
-
-	_, ok := session.Values["authenticated-user"]
-	if ok {
-		return nil
-	}
-
 	authHeader := c.Request().Header.Get("Authorization")
 	if authHeader == "" {
 		return nil
@@ -134,55 +117,17 @@ func (a *Auth0JWTAuthenticator) AuthenticateRequest(c echo.Context) error {
 		Permissions:       customClaims.Permissions,
 	}
 
-	authenticatedUserBytes, err := json.Marshal(authenticatedUser)
-	if err != nil {
-		return kit.WrapError(err, "failed to marshal authenticated user")
-	}
-
-	session.Values["authenticated-user"] = authenticatedUserBytes
-
-	err = session.Save(c.Request(), c.Response().Writer)
-	if err != nil {
-		return kit.WrapError(err, "failed to save claims to session")
-	}
+	c.Set(auth0JWTAuthenticatorContextKey, &authenticatedUser)
 
 	return nil
 }
 
 func (a *Auth0JWTAuthenticator) GetAuthenticatedUser(c echo.Context) (*AuthenticatedUser, error) {
-	ok, err := a.IsAuthenticated(c)
-	if err != nil {
-		return nil, kit.WrapError(err, "failed to check authentication")
-	}
-
-	if !ok {
+	user, ok := c.Get(auth0JWTAuthenticatorContextKey).(*AuthenticatedUser)
+	if !ok || user == nil {
 		return nil, errors.New("no authenticated user")
 	}
-
-	session, err := GetSession(auth0JWTAuthenticatorSessionKey, c)
-	if err != nil {
-		return nil, kit.WrapError(err, "error getting auth session")
-	}
-
-	if session == nil {
-		return nil, errors.New("failed to get auth session")
-	}
-
-	authenticatedUserBytes, ok := session.Values["authenticated-user"].([]byte)
-	if !ok {
-		return nil, errors.New("failed to get authenticated user from session")
-	}
-
-	slog.Debug("Auth0JWTAuthenticator#GetAuthenticatedUser:has-authenticated-user", "authenticatedUserBytes", string(authenticatedUserBytes))
-
-	authenticatedUser := AuthenticatedUser{}
-	err = json.Unmarshal(authenticatedUserBytes, &authenticatedUser)
-	if err != nil {
-		return nil, kit.WrapError(err, "failed to unmarshal authenticated user bytes")
-	}
-
-	return &authenticatedUser, nil
-
+	return user, nil
 }
 
 func (a *Auth0JWTAuthenticator) HandleNotAuthenticated(c echo.Context) error {
@@ -190,15 +135,6 @@ func (a *Auth0JWTAuthenticator) HandleNotAuthenticated(c echo.Context) error {
 }
 
 func (a *Auth0JWTAuthenticator) IsAuthenticated(c echo.Context) (bool, error) {
-	session, err := GetSession(auth0JWTAuthenticatorSessionKey, c)
-	if err != nil {
-		return false, kit.WrapError(err, "error getting auth session")
-	}
-
-	if session == nil {
-		return false, errors.New("failed to get auth session")
-	}
-
-	_, ok := session.Values["authenticated-user"]
-	return ok, nil
+	user := c.Get(auth0JWTAuthenticatorContextKey)
+	return user != nil, nil
 }
