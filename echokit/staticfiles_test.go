@@ -3,10 +3,10 @@ package echokit
 import (
 	"context"
 	"net/http"
-	"strings"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
