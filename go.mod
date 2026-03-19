@@ -10,6 +10,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression v1.7.0
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.36.0
 	github.com/coreos/go-oidc/v3 v3.14.1
+	github.com/fsnotify/fsnotify v1.9.0
 	github.com/gin-gonic/gin v1.10.1
 	github.com/go-playground/validator/v10 v10.20.0
 	github.com/gorilla/context v1.1.2

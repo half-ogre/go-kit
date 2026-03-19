@@ -2,8 +2,6 @@ package echokit
 
 import (
 	"context"
-	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -14,12 +12,11 @@ import (
 
 	"github.com/auth0/go-jwt-middleware/v2/jwks"
 	"github.com/auth0/go-jwt-middleware/v2/validator"
-	"github.com/half-ogre/go-kit/kit"
 	"github.com/labstack/echo/v4"
 )
 
 const (
-	entraIDJWTAuthenticatorSessionKey = "go-kit-echokit-entraid-jwt-authenticator"
+	entraIDJWTAuthenticatorContextKey = "go-kit-echokit-entraid-jwt-authenticated-user"
 )
 
 type EntraIDJWTAuthenticator struct {
@@ -45,14 +42,11 @@ func (c EntraIDCustomClaims) Validate(ctx context.Context) error {
 
 // NewEntraIDJWTAuthenticator creates a JWT authenticator for Microsoft Entra ID
 func NewEntraIDJWTAuthenticator(tenantID, audience string) (Authenticator, error) {
-	// Entra ID v1.0 issuer URL: https://sts.windows.net/{tenantId}/
 	issuerURL, err := url.Parse(fmt.Sprintf("https://sts.windows.net/%s/", tenantID))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse Entra ID issuer URL: %w", err)
 	}
 
-	// For JWKS discovery, use login.microsoftonline.com (where OpenID config is hosted)
-	// The provider will fetch /.well-known/openid-configuration from this URL
 	authorityURL, err := url.Parse(fmt.Sprintf("https://login.microsoftonline.com/%s", tenantID))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse authority URL: %w", err)
@@ -83,20 +77,6 @@ func NewEntraIDJWTAuthenticator(tenantID, audience string) (Authenticator, error
 }
 
 func (a *EntraIDJWTAuthenticator) AuthenticateRequest(c echo.Context) error {
-	session, err := GetSession(entraIDJWTAuthenticatorSessionKey, c)
-	if err != nil {
-		return kit.WrapError(err, "error getting auth session")
-	}
-
-	if session == nil {
-		return errors.New("failed to get auth session")
-	}
-
-	_, ok := session.Values["authenticated-user"]
-	if ok {
-		return nil
-	}
-
 	authHeader := c.Request().Header.Get("Authorization")
 	if authHeader == "" {
 		return nil
@@ -107,20 +87,9 @@ func (a *EntraIDJWTAuthenticator) AuthenticateRequest(c echo.Context) error {
 		return nil
 	}
 
-	// Decode token to see claims for debugging
-	tokenString := authHeaderParts[1]
-	parts := strings.Split(tokenString, ".")
-	if len(parts) == 3 {
-		// Decode claims (base64url encoded)
-		claims, decodeErr := base64.RawURLEncoding.DecodeString(parts[1])
-		if decodeErr == nil {
-			slog.Info("JWT claims", "claims", string(claims))
-		}
-	}
-
 	validateResult, err := a.jwtValidator.ValidateToken(c.Request().Context(), authHeaderParts[1])
 	if err != nil {
-		slog.Error("JWT validation failed", "error", err)
+		slog.Debug("Entra ID JWT validation failed", "error", err)
 		return err
 	}
 
@@ -148,60 +117,23 @@ func (a *EntraIDJWTAuthenticator) AuthenticateRequest(c echo.Context) error {
 		Nickname:          "",
 		PreferredUsername: customClaims.PreferredUsername,
 		Email:             customClaims.Email,
-		EmailVerified:     false, // Entra ID doesn't provide email_verified in standard claims
+		EmailVerified:     false,
 		Picture:           customClaims.Picture,
 		UpdatedAt:         customClaims.UpdatedAt,
 		Permissions:       permissions,
 	}
 
-	authenticatedUserBytes, err := json.Marshal(authenticatedUser)
-	if err != nil {
-		return kit.WrapError(err, "failed to marshal authenticated user")
-	}
-
-	session.Values["authenticated-user"] = authenticatedUserBytes
-
-	err = session.Save(c.Request(), c.Response().Writer)
-	if err != nil {
-		return kit.WrapError(err, "failed to save claims to session")
-	}
+	c.Set(entraIDJWTAuthenticatorContextKey, &authenticatedUser)
 
 	return nil
 }
 
 func (a *EntraIDJWTAuthenticator) GetAuthenticatedUser(c echo.Context) (*AuthenticatedUser, error) {
-	ok, err := a.IsAuthenticated(c)
-	if err != nil {
-		return nil, kit.WrapError(err, "failed to check authentication")
-	}
-
-	if !ok {
+	user, ok := c.Get(entraIDJWTAuthenticatorContextKey).(*AuthenticatedUser)
+	if !ok || user == nil {
 		return nil, errors.New("no authenticated user")
 	}
-
-	session, err := GetSession(entraIDJWTAuthenticatorSessionKey, c)
-	if err != nil {
-		return nil, kit.WrapError(err, "error getting auth session")
-	}
-
-	if session == nil {
-		return nil, errors.New("failed to get auth session")
-	}
-
-	authenticatedUserBytes, ok := session.Values["authenticated-user"].([]byte)
-	if !ok {
-		return nil, errors.New("failed to get authenticated user from session")
-	}
-
-	slog.Debug("EntraIDJWTAuthenticator#GetAuthenticatedUser:has-authenticated-user", "authenticatedUserBytes", string(authenticatedUserBytes))
-
-	authenticatedUser := AuthenticatedUser{}
-	err = json.Unmarshal(authenticatedUserBytes, &authenticatedUser)
-	if err != nil {
-		return nil, kit.WrapError(err, "failed to unmarshal authenticated user bytes")
-	}
-
-	return &authenticatedUser, nil
+	return user, nil
 }
 
 func (a *EntraIDJWTAuthenticator) HandleNotAuthenticated(c echo.Context) error {
@@ -209,15 +141,6 @@ func (a *EntraIDJWTAuthenticator) HandleNotAuthenticated(c echo.Context) error {
 }
 
 func (a *EntraIDJWTAuthenticator) IsAuthenticated(c echo.Context) (bool, error) {
-	session, err := GetSession(entraIDJWTAuthenticatorSessionKey, c)
-	if err != nil {
-		return false, kit.WrapError(err, "error getting auth session")
-	}
-
-	if session == nil {
-		return false, errors.New("failed to get auth session")
-	}
-
-	_, ok := session.Values["authenticated-user"]
-	return ok, nil
+	user := c.Get(entraIDJWTAuthenticatorContextKey)
+	return user != nil, nil
 }
