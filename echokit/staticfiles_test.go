@@ -54,7 +54,7 @@ func TestStaticFilesMiddleware(t *testing.T) {
 		assert.Contains(t, body, `.js"`)
 	})
 
-	t.Run("returns_304_for_matching_etag_on_index_html", func(t *testing.T) {
+	t.Run("serves_index_html_with_no_store_cache_control", func(t *testing.T) {
 		dir := t.TempDir()
 		os.WriteFile(filepath.Join(dir, "index.html"), []byte("<html><body>hello</body></html>"), 0644)
 		m := NewStaticFilesMiddleware(dir, false)
@@ -63,20 +63,12 @@ func TestStaticFilesMiddleware(t *testing.T) {
 		e := echo.New()
 		e.Use(m.Handler())
 
-		// First request to get ETag
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		rec := httptest.NewRecorder()
 		e.ServeHTTP(rec, req)
-		etag := rec.Header().Get("ETag")
-		assert.NotEmpty(t, etag)
 
-		// Second request with If-None-Match
-		req = httptest.NewRequest(http.MethodGet, "/", nil)
-		req.Header.Set("If-None-Match", etag)
-		rec = httptest.NewRecorder()
-		e.ServeHTTP(rec, req)
-
-		assert.Equal(t, http.StatusNotModified, rec.Code)
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Equal(t, "no-store", rec.Header().Get("Cache-Control"))
 	})
 
 	t.Run("skips_paths_matching_skipper", func(t *testing.T) {
@@ -176,23 +168,61 @@ func TestStaticFilesMiddleware(t *testing.T) {
 		assert.Contains(t, body, ".js")
 	})
 
-	t.Run("serves_non_js_css_html_files", func(t *testing.T) {
+	t.Run("fingerprints_and_serves_files_referenced_from_html", func(t *testing.T) {
 		dir := t.TempDir()
-		os.WriteFile(filepath.Join(dir, "index.html"), []byte("<html><body>hello</body></html>"), 0644)
+		os.WriteFile(filepath.Join(dir, "index.html"), []byte(`<html><body><img src="/logo.png"></body></html>`), 0644)
 		os.WriteFile(filepath.Join(dir, "logo.png"), []byte("fake-png-data"), 0644)
 		m := NewStaticFilesMiddleware(dir, false)
 		defer m.Close()
 
 		e := echo.New()
 		e.Use(m.Handler())
-		req := httptest.NewRequest(http.MethodGet, "/logo.png", nil)
-		rec := httptest.NewRecorder()
 
+		// Get the fingerprinted URL from the HTML
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+		body := rec.Body.String()
+
+		// Extract the fingerprinted src
+		start := strings.Index(body, `src="/logo.`) + len(`src="`)
+		end := strings.Index(body[start:], `"`) + start
+		fpURL := body[start:end]
+
+		// Request the fingerprinted URL
+		req = httptest.NewRequest(http.MethodGet, fpURL, nil)
+		rec = httptest.NewRecorder()
 		e.ServeHTTP(rec, req)
 
 		assert.Equal(t, http.StatusOK, rec.Code)
 		assert.Equal(t, "fake-png-data", rec.Body.String())
 		assert.Equal(t, "image/png", rec.Header().Get("Content-Type"))
+		assert.Equal(t, "public, max-age=31536000, immutable", rec.Header().Get("Cache-Control"))
+
+		// Original path should 404
+		req = httptest.NewRequest(http.MethodGet, "/logo.png", nil)
+		rec = httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+		assert.Equal(t, http.StatusNotFound, rec.Code)
+	})
+
+	t.Run("serves_unreferenced_files_at_original_path_with_no_store", func(t *testing.T) {
+		dir := t.TempDir()
+		os.WriteFile(filepath.Join(dir, "index.html"), []byte("<html><body>hello</body></html>"), 0644)
+		os.WriteFile(filepath.Join(dir, "data.json"), []byte(`{"key":"value"}`), 0644)
+		m := NewStaticFilesMiddleware(dir, false)
+		defer m.Close()
+
+		e := echo.New()
+		e.Use(m.Handler())
+
+		req := httptest.NewRequest(http.MethodGet, "/data.json", nil)
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Equal(t, `{"key":"value"}`, rec.Body.String())
+		assert.Equal(t, "no-store", rec.Header().Get("Cache-Control"))
 	})
 
 	t.Run("fingerprints_images_in_html", func(t *testing.T) {
