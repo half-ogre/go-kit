@@ -24,14 +24,17 @@ var reloadScript = []byte(`<script>new EventSource('/api/dev/reload').onmessage 
 
 // staticEntry holds a cached static file with its fingerprinted content.
 type staticEntry struct {
-	content     []byte
-	contentType string
-	etag        string
+	content       []byte
+	contentType   string
+	etag          string
+	fingerprinted bool
 }
 
 // StaticFilesMiddleware serves static files with content-hash fingerprinted URLs.
-// JS and CSS files are served at /path/to/file.<hash>.ext with immutable caching.
-// index.html is served with no-cache + ETag so the browser always revalidates.
+// JS and CSS files are always fingerprinted. Other files (images, fonts, etc.) are
+// fingerprinted if they are referenced from HTML (src/href), JS (import), or CSS (url()).
+// Fingerprinted files are served at /path/to/file.<hash>.ext with immutable caching.
+// Unreferenced files and HTML files are served at their original paths with no-store.
 // In dev mode, files are re-read and re-fingerprinted on every request, and a
 // live reload watcher automatically triggers browser refreshes on file changes.
 type StaticFilesMiddleware struct {
@@ -145,17 +148,10 @@ func (m *StaticFilesMiddleware) Handler() echo.MiddlewareFunc {
 				}
 			}
 
-			if m.devMode {
-				c.Response().Header().Set("Cache-Control", "no-store")
-			} else if path == "/index.html" || e == m.spa {
-				c.Response().Header().Set("Cache-Control", "no-cache")
-				c.Response().Header().Set("ETag", e.etag)
-
-				if match := c.Request().Header.Get("If-None-Match"); match == e.etag {
-					return c.NoContent(http.StatusNotModified)
-				}
-			} else {
+			if e.fingerprinted && !m.devMode {
 				c.Response().Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+			} else {
+				c.Response().Header().Set("Cache-Control", "no-store")
 			}
 
 			return c.Blob(http.StatusOK, e.contentType, e.content)
@@ -163,7 +159,8 @@ func (m *StaticFilesMiddleware) Handler() echo.MiddlewareFunc {
 	}
 }
 
-// build reads all static files, computes fingerprinted URLs, and rewrites imports.
+// build reads all static files, discovers references, fingerprints referenced files,
+// rewrites references, and registers files for serving.
 func (m *StaticFilesMiddleware) build() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -174,9 +171,8 @@ func (m *StaticFilesMiddleware) build() error {
 
 	files := make(map[string]*staticEntry)
 
-	// Phase 1: Read all files and compute hashes of raw content
+	// Phase 1: Read all files
 	rawFiles := make(map[string][]byte)
-	fingerprints := make(map[string]string)
 
 	err := filepath.Walk(m.root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -196,19 +192,7 @@ func (m *StaticFilesMiddleware) build() error {
 			return err
 		}
 		urlPath := "/" + filepath.ToSlash(relPath)
-		ext := filepath.Ext(path)
-
 		rawFiles[urlPath] = content
-
-		// Fingerprint everything except index.html (the SPA entry point)
-		if urlPath != "/index.html" {
-			hash := md5.Sum(content)
-			shortHash := fmt.Sprintf("%x", hash[:6])
-			base := strings.TrimSuffix(filepath.Base(path), ext)
-			dir := filepath.Dir(urlPath)
-			fingerprintedPath := strings.TrimRight(dir, "/") + "/" + base + "." + shortHash + ext
-			fingerprints[urlPath] = fingerprintedPath
-		}
 
 		return nil
 	})
@@ -216,12 +200,71 @@ func (m *StaticFilesMiddleware) build() error {
 		return err
 	}
 
-	// Phase 2: Rewrite references and register files
+	// Phase 2: Discover referenced files and build fingerprint map
+	// All JS and CSS files are fingerprinted (their references are always rewritable).
+	// Other files are fingerprinted only if they are referenced from HTML, JS, or CSS.
 	importFromRegex := regexp.MustCompile(`(from\s+['"])(\./[^'"]+|\.\.\/[^'"]+)(['"])`)
 	importSideEffectRegex := regexp.MustCompile(`(import\s+['"])(\./[^'"]+|\.\.\/[^'"]+)(['"])`)
 	dynamicImportRegex := regexp.MustCompile(`(import\s*\(\s*['"])(\./[^'"]+|\.\.\/[^'"]+)(['"]\s*\))`)
 	cssURLRegex := regexp.MustCompile(`(url\s*\(\s*['"]?)(\./[^'")]+|\.\.\/[^'")]+)(['"]?\s*\))`)
+	htmlSrcRegex := regexp.MustCompile(`(?:src|href)="(/[^"]+)"`)
 
+	shouldFingerprint := make(map[string]bool)
+
+	// All JS and CSS files are always fingerprinted
+	for urlPath := range rawFiles {
+		ext := filepath.Ext(urlPath)
+		if ext == ".js" || ext == ".css" {
+			shouldFingerprint[urlPath] = true
+		}
+	}
+
+	// Scan for referenced files
+	extractRelativeRefs := func(re *regexp.Regexp, content []byte, dir string) {
+		for _, match := range re.FindAllSubmatch(content, -1) {
+			resolved := resolveStaticImportPath(dir, string(match[2]))
+			if _, exists := rawFiles[resolved]; exists {
+				shouldFingerprint[resolved] = true
+			}
+		}
+	}
+
+	for urlPath, content := range rawFiles {
+		ext := filepath.Ext(urlPath)
+		dir := filepath.Dir(urlPath)
+
+		switch ext {
+		case ".js":
+			extractRelativeRefs(importFromRegex, content, dir)
+			extractRelativeRefs(importSideEffectRegex, content, dir)
+			extractRelativeRefs(dynamicImportRegex, content, dir)
+		case ".css":
+			extractRelativeRefs(cssURLRegex, content, dir)
+		case ".html":
+			// HTML uses absolute paths in src/href
+			for _, match := range htmlSrcRegex.FindAllSubmatch(content, -1) {
+				ref := string(match[1])
+				if _, exists := rawFiles[ref]; exists {
+					shouldFingerprint[ref] = true
+				}
+			}
+		}
+	}
+
+	// Build fingerprint map for files that should be fingerprinted
+	fingerprints := make(map[string]string)
+	for urlPath := range shouldFingerprint {
+		content := rawFiles[urlPath]
+		ext := filepath.Ext(urlPath)
+		hash := md5.Sum(content)
+		shortHash := fmt.Sprintf("%x", hash[:6])
+		base := strings.TrimSuffix(filepath.Base(urlPath), ext)
+		dir := filepath.Dir(urlPath)
+		fingerprintedPath := strings.TrimRight(dir, "/") + "/" + base + "." + shortHash + ext
+		fingerprints[urlPath] = fingerprintedPath
+	}
+
+	// Phase 3: Rewrite references and register files
 	for urlPath, raw := range rawFiles {
 		ext := filepath.Ext(urlPath)
 		content := raw
@@ -268,13 +311,14 @@ func (m *StaticFilesMiddleware) build() error {
 			etag:        fmt.Sprintf(`"%x"`, hash),
 		}
 
-		// Register at fingerprinted path (everything except index.html)
 		if fp, ok := fingerprints[urlPath]; ok {
+			// Fingerprinted file: only serve at the fingerprinted path
+			e.fingerprinted = true
 			files[fp] = e
+		} else {
+			// Non-fingerprinted file: serve at the original path
+			files[urlPath] = e
 		}
-
-		// Also register at original path (needed for import maps, absolute references, and index.html)
-		files[urlPath] = e
 
 		if urlPath == "/index.html" {
 			m.spa = e
