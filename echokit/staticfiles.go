@@ -175,28 +175,51 @@ func (m *StaticFilesMiddleware) build() error {
 	// Phase 1: Read all files
 	rawFiles := make(map[string][]byte)
 
-	err := filepath.Walk(m.root, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if info.IsDir() {
+	var walkFiles func(root, base string) error
+	walkFiles = func(root, base string) error {
+		return filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if info.IsDir() {
+				if info.Name() != "." && strings.HasPrefix(info.Name(), ".") {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+
+			// Follow symlinks to directories by walking into them
+			if info.Mode()&os.ModeSymlink != 0 {
+				resolved, err := filepath.EvalSymlinks(path)
+				if err != nil {
+					return nil
+				}
+				resolvedInfo, err := os.Stat(resolved)
+				if err != nil {
+					return nil
+				}
+				if resolvedInfo.IsDir() {
+					relPath, _ := filepath.Rel(root, path)
+					return walkFiles(resolved, filepath.Join(base, relPath))
+				}
+			}
+
+			content, err := os.ReadFile(path)
+			if err != nil {
+				return nil // skip unreadable files
+			}
+
+			relPath, err := filepath.Rel(root, path)
+			if err != nil {
+				return err
+			}
+			urlPath := "/" + filepath.ToSlash(filepath.Join(base, relPath))
+			rawFiles[urlPath] = content
+
 			return nil
-		}
-
-		content, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-
-		relPath, err := filepath.Rel(m.root, path)
-		if err != nil {
-			return err
-		}
-		urlPath := "/" + filepath.ToSlash(relPath)
-		rawFiles[urlPath] = content
-
-		return nil
-	})
+		})
+	}
+	err := walkFiles(m.root, "")
 	if err != nil {
 		return err
 	}
@@ -343,15 +366,35 @@ func (m *StaticFilesMiddleware) startWatcher() {
 		return
 	}
 
-	err = filepath.WalkDir(m.root, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			return fsw.Add(path)
-		}
-		return nil
-	})
+	var watchDirs func(dir string) error
+	watchDirs = func(dir string) error {
+		return filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if d.IsDir() {
+				if d.Name() != "." && strings.HasPrefix(d.Name(), ".") {
+					return filepath.SkipDir
+				}
+				return fsw.Add(path)
+			}
+			if d.Type()&os.ModeSymlink != 0 {
+				resolved, err := filepath.EvalSymlinks(path)
+				if err != nil {
+					return nil
+				}
+				info, err := os.Stat(resolved)
+				if err != nil {
+					return nil
+				}
+				if info.IsDir() {
+					return watchDirs(resolved)
+				}
+			}
+			return nil
+		})
+	}
+	err = watchDirs(m.root)
 	if err != nil {
 		slog.Error("Failed to walk directory for live reload", "error", err)
 		fsw.Close()
