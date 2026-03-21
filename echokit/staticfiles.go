@@ -28,6 +28,7 @@ type staticEntry struct {
 	contentType   string
 	etag          string
 	fingerprinted bool
+	vendored      bool
 }
 
 // StaticFilesMiddleware serves static files with content-hash fingerprinted URLs.
@@ -148,7 +149,7 @@ func (m *StaticFilesMiddleware) Handler() echo.MiddlewareFunc {
 				}
 			}
 
-			if e.fingerprinted && !m.devMode {
+			if (e.fingerprinted || e.vendored) && !m.devMode {
 				c.Response().Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 			} else {
 				c.Response().Header().Set("Cache-Control", "no-store")
@@ -211,10 +212,11 @@ func (m *StaticFilesMiddleware) build() error {
 
 	shouldFingerprint := make(map[string]bool)
 
-	// All JS and CSS files are always fingerprinted
+	// All JS and CSS files are always fingerprinted, except vendored files
+	// (files in /vendor/ directories are versioned by directory name)
 	for urlPath := range rawFiles {
 		ext := filepath.Ext(urlPath)
-		if ext == ".js" || ext == ".css" {
+		if (ext == ".js" || ext == ".css") && !strings.HasPrefix(urlPath, "/vendor/") {
 			shouldFingerprint[urlPath] = true
 		}
 	}
@@ -317,6 +319,9 @@ func (m *StaticFilesMiddleware) build() error {
 			files[fp] = e
 		} else {
 			// Non-fingerprinted file: serve at the original path
+			if strings.HasPrefix(urlPath, "/vendor/") {
+				e.vendored = true
+			}
 			files[urlPath] = e
 		}
 
@@ -461,7 +466,32 @@ func rewriteStaticHTML(content []byte, fingerprints map[string]string) []byte {
 		s = strings.ReplaceAll(s, `src="`+original+`"`, `src="`+fingerprinted+`"`)
 		s = strings.ReplaceAll(s, `href="`+original+`"`, `href="`+fingerprinted+`"`)
 	}
+	// Rewrite import map entries: "module": "/path/to/file.js" → "module": "/path/to/file.hash.js"
+	s = rewriteImportMap(s, fingerprints)
 	return []byte(s)
+}
+
+func rewriteImportMap(html string, fingerprints map[string]string) string {
+	const startTag = `<script type="importmap">`
+	const endTag = `</script>`
+
+	startIdx := strings.Index(html, startTag)
+	if startIdx < 0 {
+		return html
+	}
+	startIdx += len(startTag)
+	endIdx := strings.Index(html[startIdx:], endTag)
+	if endIdx < 0 {
+		return html
+	}
+	endIdx += startIdx
+
+	mapContent := html[startIdx:endIdx]
+	for original, fingerprinted := range fingerprints {
+		mapContent = strings.ReplaceAll(mapContent, `"`+original+`"`, `"`+fingerprinted+`"`)
+	}
+
+	return html[:startIdx] + mapContent + html[endIdx:]
 }
 
 func resolveStaticImportPath(dir, importPath string) string {
