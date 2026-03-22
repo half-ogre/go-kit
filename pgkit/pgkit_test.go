@@ -439,6 +439,17 @@ func TestListMigrationsFromDir(t *testing.T) {
 	})
 }
 
+func tableExistsRow(exists bool) func(ctx context.Context, query string, args ...any) Row {
+	return func(ctx context.Context, query string, args ...any) Row {
+		return &FakeRow{
+			ScanFake: func(dest ...any) error {
+				*dest[0].(*bool) = exists
+				return nil
+			},
+		}
+	}
+}
+
 func TestListMigrations(t *testing.T) {
 	t.Run("returns_all_migrations_from_directory_with_applied_status_and_timestamps", func(t *testing.T) {
 		appliedTime := time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC)
@@ -457,9 +468,7 @@ func TestListMigrations(t *testing.T) {
 			ErrFake:   func() error { return nil },
 		}
 		fakeDB := &FakeDB{
-			ExecFake: func(ctx context.Context, query string, args ...any) (sql.Result, error) {
-				return nil, nil
-			},
+			QueryRowFake: tableExistsRow(true),
 			QueryFake: func(ctx context.Context, query string, args ...any) (Rows, error) {
 				return fakeRows, nil
 			},
@@ -483,6 +492,20 @@ func TestListMigrations(t *testing.T) {
 		assert.Nil(t, migrations[1].AppliedAt)
 	})
 
+	t.Run("returns_all_migrations_as_unapplied_when_table_does_not_exist", func(t *testing.T) {
+		fakeDB := &FakeDB{
+			QueryRowFake: tableExistsRow(false),
+		}
+
+		migrator := NewMigrator()
+		migrations, err := migrator.ListMigrations(fakeDB, "testdata")
+
+		assert.NoError(t, err)
+		assert.Len(t, migrations, 2)
+		assert.False(t, migrations[0].Applied)
+		assert.False(t, migrations[1].Applied)
+	})
+
 	t.Run("returns_migrations_sorted_by_version", func(t *testing.T) {
 		fakeRows := &FakeRows{
 			NextFake:  func() bool { return false },
@@ -490,9 +513,7 @@ func TestListMigrations(t *testing.T) {
 			ErrFake:   func() error { return nil },
 		}
 		fakeDB := &FakeDB{
-			ExecFake: func(ctx context.Context, query string, args ...any) (sql.Result, error) {
-				return nil, nil
-			},
+			QueryRowFake: tableExistsRow(true),
 			QueryFake: func(ctx context.Context, query string, args ...any) (Rows, error) {
 				return fakeRows, nil
 			},
@@ -526,10 +547,12 @@ func TestListMigrations(t *testing.T) {
 		assert.EqualError(t, err, "directory path cannot be empty")
 	})
 
-	t.Run("returns_error_when_creating_migrations_table_fails", func(t *testing.T) {
+	t.Run("returns_error_when_checking_migrations_table_fails", func(t *testing.T) {
 		fakeDB := &FakeDB{
-			ExecFake: func(ctx context.Context, query string, args ...any) (sql.Result, error) {
-				return nil, assert.AnError
+			QueryRowFake: func(ctx context.Context, query string, args ...any) Row {
+				return &FakeRow{
+					ScanFake: func(dest ...any) error { return assert.AnError },
+				}
 			},
 		}
 
@@ -538,14 +561,12 @@ func TestListMigrations(t *testing.T) {
 
 		assert.Nil(t, migrations)
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to create pgkit_migrations table")
+		assert.Contains(t, err.Error(), "failed to check for pgkit_migrations table")
 	})
 
 	t.Run("returns_error_when_directory_does_not_exist", func(t *testing.T) {
 		fakeDB := &FakeDB{
-			ExecFake: func(ctx context.Context, query string, args ...any) (sql.Result, error) {
-				return nil, nil
-			},
+			QueryRowFake: tableExistsRow(true),
 		}
 
 		migrator := NewMigrator()
@@ -558,9 +579,7 @@ func TestListMigrations(t *testing.T) {
 
 	t.Run("returns_error_when_querying_applied_migrations_fails", func(t *testing.T) {
 		fakeDB := &FakeDB{
-			ExecFake: func(ctx context.Context, query string, args ...any) (sql.Result, error) {
-				return nil, nil
-			},
+			QueryRowFake: tableExistsRow(true),
 			QueryFake: func(ctx context.Context, query string, args ...any) (Rows, error) {
 				return nil, assert.AnError
 			},
@@ -581,9 +600,7 @@ func TestListMigrations(t *testing.T) {
 			CloseFake: func() error { return nil },
 		}
 		fakeDB := &FakeDB{
-			ExecFake: func(ctx context.Context, query string, args ...any) (sql.Result, error) {
-				return nil, nil
-			},
+			QueryRowFake: tableExistsRow(true),
 			QueryFake: func(ctx context.Context, query string, args ...any) (Rows, error) {
 				return fakeRows, nil
 			},
@@ -604,9 +621,7 @@ func TestListMigrations(t *testing.T) {
 			ErrFake:   func() error { return assert.AnError },
 		}
 		fakeDB := &FakeDB{
-			ExecFake: func(ctx context.Context, query string, args ...any) (sql.Result, error) {
-				return nil, nil
-			},
+			QueryRowFake: tableExistsRow(true),
 			QueryFake: func(ctx context.Context, query string, args ...any) (Rows, error) {
 				return fakeRows, nil
 			},
@@ -621,17 +636,14 @@ func TestListMigrations(t *testing.T) {
 	})
 
 	t.Run("returns_empty_list_when_directory_has_no_sql_files", func(t *testing.T) {
-		fakeRows := &FakeRows{
-			NextFake:  func() bool { return false },
-			CloseFake: func() error { return nil },
-			ErrFake:   func() error { return nil },
-		}
 		fakeDB := &FakeDB{
-			ExecFake: func(ctx context.Context, query string, args ...any) (sql.Result, error) {
-				return nil, nil
-			},
+			QueryRowFake: tableExistsRow(true),
 			QueryFake: func(ctx context.Context, query string, args ...any) (Rows, error) {
-				return fakeRows, nil
+				return &FakeRows{
+					NextFake:  func() bool { return false },
+					CloseFake: func() error { return nil },
+					ErrFake:   func() error { return nil },
+				}, nil
 			},
 		}
 

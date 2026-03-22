@@ -129,18 +129,6 @@ func (m *migrator) ListMigrations(db DB, dirPath string) ([]Migration, error) {
 
 	migrationsFS := os.DirFS(dirPath)
 
-	// Create migrations tracking table if it doesn't exist
-	_, err := db.Exec(context.Background(), `
-		CREATE TABLE IF NOT EXISTS pgkit_migrations (
-			id SERIAL PRIMARY KEY,
-			filename VARCHAR(255) UNIQUE NOT NULL,
-			applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-		)
-	`)
-	if err != nil {
-		return nil, kit.WrapError(err, "failed to create pgkit_migrations table")
-	}
-
 	// Get all migration files from directory
 	entries, err := fs.ReadDir(migrationsFS, ".")
 	if err != nil {
@@ -162,6 +150,19 @@ func (m *migrator) ListMigrations(db DB, dirPath string) ([]Migration, error) {
 	sort.Slice(migrations, func(i, j int) bool {
 		return migrations[i].Version < migrations[j].Version
 	})
+
+	// Check if the migrations tracking table exists (don't create it — that's RunMigrations' job)
+	var tableExists bool
+	err = db.QueryRow(context.Background(),
+		"SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'pgkit_migrations')").Scan(&tableExists)
+	if err != nil {
+		return nil, kit.WrapError(err, "failed to check for pgkit_migrations table")
+	}
+
+	if !tableExists {
+		// No migrations have been run yet — return all as unapplied
+		return migrations, nil
+	}
 
 	// Get all applied migrations with timestamps
 	rows, err := db.Query(context.Background(), "SELECT filename, applied_at FROM pgkit_migrations")
