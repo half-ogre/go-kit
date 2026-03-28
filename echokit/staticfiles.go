@@ -273,54 +273,139 @@ func (m *StaticFilesMiddleware) build() error {
 					shouldFingerprint[ref] = true
 				}
 			}
-		}
-	}
-
-	// Build fingerprint map for files that should be fingerprinted
-	fingerprints := make(map[string]string)
-	for urlPath := range shouldFingerprint {
-		content := rawFiles[urlPath]
-		ext := filepath.Ext(urlPath)
-		hash := md5.Sum(content)
-		shortHash := fmt.Sprintf("%x", hash[:6])
-		base := strings.TrimSuffix(filepath.Base(urlPath), ext)
-		dir := filepath.Dir(urlPath)
-		fingerprintedPath := strings.TrimRight(dir, "/") + "/" + base + "." + shortHash + ext
-		fingerprints[urlPath] = fingerprintedPath
-	}
-
-	// Phase 3: Rewrite references and register files
-	for urlPath, raw := range rawFiles {
-		ext := filepath.Ext(urlPath)
-		content := raw
-		dir := filepath.Dir(urlPath)
-
-		rewriteRelativePaths := func(re *regexp.Regexp, src []byte) []byte {
-			return re.ReplaceAllFunc(src, func(match []byte) []byte {
-				parts := re.FindSubmatch(match)
-				importPath := string(parts[2])
-				resolved := resolveStaticImportPath(dir, importPath)
-				if fp, ok := fingerprints[resolved]; ok {
-					relFP := relativeStaticPath(dir, fp)
-					return []byte(string(parts[1]) + relFP + string(parts[3]))
+			// Import map entries use absolute paths
+			for _, ref := range extractImportMapRefs(content) {
+				if _, exists := rawFiles[ref]; exists {
+					shouldFingerprint[ref] = true
 				}
-				return match
-			})
+			}
 		}
+	}
+
+	// Phase 3: Build dependency graph, topologically sort, rewrite and fingerprint
+	// bottom-up so that parent hashes reflect rewritten (fingerprinted) child paths.
+
+	// Build dependency graph: parent -> children
+	deps := make(map[string][]string)
+	for urlPath, content := range rawFiles {
+		ext := filepath.Ext(urlPath)
+		dir := filepath.Dir(urlPath)
+
+		addDeps := func(re *regexp.Regexp) {
+			for _, match := range re.FindAllSubmatch(content, -1) {
+				resolved := resolveStaticImportPath(dir, string(match[2]))
+				if _, exists := rawFiles[resolved]; exists {
+					deps[urlPath] = append(deps[urlPath], resolved)
+				}
+			}
+		}
+
+		switch ext {
+		case ".js":
+			addDeps(importFromRegex)
+			addDeps(importSideEffectRegex)
+			addDeps(dynamicImportRegex)
+		case ".css":
+			addDeps(cssURLRegex)
+		case ".html":
+			for _, match := range htmlSrcRegex.FindAllSubmatch(content, -1) {
+				ref := string(match[1])
+				if _, exists := rawFiles[ref]; exists {
+					deps[urlPath] = append(deps[urlPath], ref)
+				}
+			}
+			for _, ref := range extractImportMapRefs(content) {
+				if _, exists := rawFiles[ref]; exists {
+					deps[urlPath] = append(deps[urlPath], ref)
+				}
+			}
+		}
+	}
+
+	// Topological sort (Kahn's algorithm)
+	inDegree := make(map[string]int)
+	reverseDeps := make(map[string][]string) // child -> parents
+	for urlPath := range rawFiles {
+		if _, ok := inDegree[urlPath]; !ok {
+			inDegree[urlPath] = 0
+		}
+	}
+	for parent, children := range deps {
+		for _, child := range children {
+			inDegree[parent]++
+			reverseDeps[child] = append(reverseDeps[child], parent)
+			_ = inDegree[child] // ensure child is in map
+		}
+	}
+
+	var order []string
+	var queue []string
+	for path, deg := range inDegree {
+		if deg == 0 {
+			queue = append(queue, path)
+		}
+	}
+	for len(queue) > 0 {
+		path := queue[0]
+		queue = queue[1:]
+		order = append(order, path)
+		for _, parent := range reverseDeps[path] {
+			inDegree[parent]--
+			if inDegree[parent] == 0 {
+				queue = append(queue, parent)
+			}
+		}
+	}
+	// Add any remaining files (cycles or disconnected)
+	for path := range rawFiles {
+		found := false
+		for _, p := range order {
+			if p == path {
+				found = true
+				break
+			}
+		}
+		if !found {
+			order = append(order, path)
+		}
+	}
+
+	// Process files in topological order (leaves first).
+	// Rewrite references using already-computed fingerprints, then hash the result.
+	fingerprints := make(map[string]string)
+	rewrittenContent := make(map[string][]byte)
+
+	rewriteRelativePaths := func(re *regexp.Regexp, src []byte, dir string) []byte {
+		return re.ReplaceAllFunc(src, func(match []byte) []byte {
+			parts := re.FindSubmatch(match)
+			importPath := string(parts[2])
+			resolved := resolveStaticImportPath(dir, importPath)
+			if fp, ok := fingerprints[resolved]; ok {
+				relFP := relativeStaticPath(dir, fp)
+				return []byte(string(parts[1]) + relFP + string(parts[3]))
+			}
+			return match
+		})
+	}
+
+	for _, urlPath := range order {
+		ext := filepath.Ext(urlPath)
+		content := rawFiles[urlPath]
+		dir := filepath.Dir(urlPath)
 
 		// Rewrite JS imports
 		if ext == ".js" {
-			content = rewriteRelativePaths(importFromRegex, content)
-			content = rewriteRelativePaths(importSideEffectRegex, content)
-			content = rewriteRelativePaths(dynamicImportRegex, content)
+			content = rewriteRelativePaths(importFromRegex, content, dir)
+			content = rewriteRelativePaths(importSideEffectRegex, content, dir)
+			content = rewriteRelativePaths(dynamicImportRegex, content, dir)
 		}
 
 		// Rewrite CSS url() references
 		if ext == ".css" {
-			content = rewriteRelativePaths(cssURLRegex, content)
+			content = rewriteRelativePaths(cssURLRegex, content, dir)
 		}
 
-		// Rewrite HTML src/href attributes
+		// Rewrite HTML src/href attributes and import maps
 		if ext == ".html" {
 			content = rewriteStaticHTML(content, fingerprints)
 			if m.devMode {
@@ -328,7 +413,22 @@ func (m *StaticFilesMiddleware) build() error {
 			}
 		}
 
-		ct := staticContentType(ext)
+		rewrittenContent[urlPath] = content
+
+		// Compute fingerprint from rewritten content (not raw)
+		if shouldFingerprint[urlPath] {
+			hash := md5.Sum(content)
+			shortHash := fmt.Sprintf("%x", hash[:6])
+			base := strings.TrimSuffix(filepath.Base(urlPath), ext)
+			fpDir := filepath.Dir(urlPath)
+			fingerprintedPath := strings.TrimRight(fpDir, "/") + "/" + base + "." + shortHash + ext
+			fingerprints[urlPath] = fingerprintedPath
+		}
+	}
+
+	// Register all files for serving
+	for urlPath, content := range rewrittenContent {
+		ct := staticContentType(filepath.Ext(urlPath))
 		hash := md5.Sum(content)
 		e := &staticEntry{
 			content:     content,
@@ -337,11 +437,9 @@ func (m *StaticFilesMiddleware) build() error {
 		}
 
 		if fp, ok := fingerprints[urlPath]; ok {
-			// Fingerprinted file: only serve at the fingerprinted path
 			e.fingerprinted = true
 			files[fp] = e
 		} else {
-			// Non-fingerprinted file: serve at the original path
 			if strings.HasPrefix(urlPath, "/vendor/") {
 				e.vendored = true
 			}
@@ -535,6 +633,31 @@ func rewriteImportMap(html string, fingerprints map[string]string) string {
 	}
 
 	return html[:startIdx] + mapContent + html[endIdx:]
+}
+
+// extractImportMapRefs extracts absolute paths referenced in an HTML import map.
+func extractImportMapRefs(content []byte) []string {
+	importMapValueRegex := regexp.MustCompile(`":\s*"(/[^"]+)"`)
+	const startTag = `<script type="importmap">`
+	const endTag = `</script>`
+
+	s := string(content)
+	startIdx := strings.Index(s, startTag)
+	if startIdx < 0 {
+		return nil
+	}
+	startIdx += len(startTag)
+	endIdx := strings.Index(s[startIdx:], endTag)
+	if endIdx < 0 {
+		return nil
+	}
+	mapContent := s[startIdx : startIdx+endIdx]
+
+	var refs []string
+	for _, match := range importMapValueRegex.FindAllStringSubmatch(mapContent, -1) {
+		refs = append(refs, match[1])
+	}
+	return refs
 }
 
 func resolveStaticImportPath(dir, importPath string) string {
