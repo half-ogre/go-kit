@@ -2,6 +2,7 @@ package echokit
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -536,6 +537,63 @@ func extractFingerprintedPath(html, prefix string) string {
 		end++
 	}
 	return html[start:end]
+}
+
+func TestStaticFilesMiddleware_CircularDependencyWarning(t *testing.T) {
+	t.Run("logs_warning_for_circular_imports", func(t *testing.T) {
+		dir := t.TempDir()
+		os.MkdirAll(filepath.Join(dir, "lib"), 0755)
+
+		// Create a circular dependency: a.js imports b.js, b.js imports a.js
+		os.WriteFile(filepath.Join(dir, "index.html"), []byte(`<html><body><script type="module" src="/lib/app.js"></script></body></html>`), 0644)
+		os.WriteFile(filepath.Join(dir, "lib", "a.js"), []byte(`import { B } from './b.js'; export const A = 'a' + B;`), 0644)
+		os.WriteFile(filepath.Join(dir, "lib", "b.js"), []byte(`import { A } from './a.js'; export const B = 'b' + A;`), 0644)
+		os.WriteFile(filepath.Join(dir, "lib", "app.js"), []byte(`import { A } from './a.js'; console.log(A);`), 0644)
+
+		// Capture log output
+		var logBuf strings.Builder
+		oldLogger := slog.Default()
+		slog.SetDefault(slog.New(slog.NewTextHandler(&logBuf, &slog.HandlerOptions{Level: slog.LevelWarn})))
+		defer slog.SetDefault(oldLogger)
+
+		m := NewStaticFilesMiddleware(dir, false)
+		defer m.Close()
+		e := echo.New()
+		e.Use(m.Handler())
+
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Contains(t, logBuf.String(), "circular dependency")
+	})
+
+	t.Run("no_warning_for_acyclic_imports", func(t *testing.T) {
+		dir := t.TempDir()
+		os.MkdirAll(filepath.Join(dir, "lib"), 0755)
+
+		os.WriteFile(filepath.Join(dir, "index.html"), []byte(`<html><body><script type="module" src="/lib/app.js"></script></body></html>`), 0644)
+		os.WriteFile(filepath.Join(dir, "lib", "utils.js"), []byte("export const U = 1;"), 0644)
+		os.WriteFile(filepath.Join(dir, "lib", "app.js"), []byte(`import { U } from './utils.js'; console.log(U);`), 0644)
+
+		var logBuf strings.Builder
+		oldLogger := slog.Default()
+		slog.SetDefault(slog.New(slog.NewTextHandler(&logBuf, &slog.HandlerOptions{Level: slog.LevelWarn})))
+		defer slog.SetDefault(oldLogger)
+
+		m := NewStaticFilesMiddleware(dir, false)
+		defer m.Close()
+		e := echo.New()
+		e.Use(m.Handler())
+
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.NotContains(t, logBuf.String(), "circular dependency")
+	})
 }
 
 func TestStaticFilesMiddleware_LiveReload(t *testing.T) {

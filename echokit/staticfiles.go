@@ -229,7 +229,7 @@ func (m *StaticFilesMiddleware) build() error {
 	// Other files are fingerprinted only if they are referenced from HTML, JS, or CSS.
 	importFromRegex := regexp.MustCompile(`(from\s+['"])(\./[^'"]+|\.\.\/[^'"]+)(['"])`)
 	importSideEffectRegex := regexp.MustCompile(`(import\s+['"])(\./[^'"]+|\.\.\/[^'"]+)(['"])`)
-	dynamicImportRegex := regexp.MustCompile(`(import\s*\(\s*['"])(\./[^'"]+|\.\.\/[^'"]+)(['"]\s*\))`)
+	dynamicImportRegex := regexp.MustCompile(`([^{]import\s*\(\s*['"])(\./[^'"]+|\.\.\/[^'"]+)(['"]\s*\))`)
 	cssURLRegex := regexp.MustCompile(`(url\s*\(\s*['"]?)(\./[^'")]+|\.\.\/[^'")]+)(['"]?\s*\))`)
 	htmlSrcRegex := regexp.MustCompile(`(?:src|href)="(/[^"]+)"`)
 
@@ -356,16 +356,29 @@ func (m *StaticFilesMiddleware) build() error {
 			}
 		}
 	}
-	// Add any remaining files (cycles or disconnected)
-	for path := range rawFiles {
-		found := false
-		for _, p := range order {
-			if p == path {
-				found = true
-				break
+	// Detect and warn about circular dependencies — files stuck in cycles
+	// will have their imports only partially rewritten (fingerprinting may be wrong).
+	ordered := make(map[string]bool, len(order))
+	for _, p := range order {
+		ordered[p] = true
+	}
+	for path, deg := range inDegree {
+		if deg > 0 && !ordered[path] {
+			// Find which of this file's dependencies are also stuck
+			var cycle []string
+			for _, child := range deps[path] {
+				if !ordered[child] {
+					cycle = append(cycle, child)
+				}
 			}
+			slog.Warn("static file has circular dependency — fingerprinted imports may be incomplete",
+				"file", path, "unresolved_deps", cycle)
 		}
-		if !found {
+	}
+
+	// Add remaining files (cycles or disconnected) in arbitrary order
+	for path := range rawFiles {
+		if !ordered[path] {
 			order = append(order, path)
 		}
 	}
