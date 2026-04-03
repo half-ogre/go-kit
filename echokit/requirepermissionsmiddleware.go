@@ -9,7 +9,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-func RequirePermissions(permissions []string, orPermissions ...[]string) echo.MiddlewareFunc {
+func RequirePermissions(audience string, permissions []string, orPermissions ...[]string) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			authenticator, err := GetAuthenticator(c)
@@ -36,10 +36,11 @@ func RequirePermissions(permissions []string, orPermissions ...[]string) echo.Mi
 
 				slog.Debug("checking user permissions", "user", authenticatedUser)
 
-				hasPermissions := checkPermissions(authenticatedUser.Permissions, permissions)
+				userPerms := authenticatedUser.Permissions[audience]
+				hasPermissions := checkPermissions(userPerms, permissions)
 				if !hasPermissions {
 					for _, orPerms := range orPermissions {
-						if checkPermissions(authenticatedUser.Permissions, orPerms) {
+						if checkPermissions(userPerms, orPerms) {
 							hasPermissions = true
 							break
 						}
@@ -56,13 +57,13 @@ func RequirePermissions(permissions []string, orPermissions ...[]string) echo.Mi
 	}
 }
 
-func RequirePermission(permission string, orPermission ...string) echo.MiddlewareFunc {
+func RequirePermission(audience, permission string, orPermission ...string) echo.MiddlewareFunc {
 	orPermissions := [][]string{}
 	for _, orP := range orPermission {
 		orPermissions = append(orPermissions, []string{orP})
 	}
 
-	return RequirePermissions([]string{permission}, orPermissions...)
+	return RequirePermissions(audience, []string{permission}, orPermissions...)
 }
 
 func checkPermissions(userPermissions []string, requiredPermissions []string) bool {

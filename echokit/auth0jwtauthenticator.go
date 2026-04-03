@@ -114,7 +114,7 @@ func (a *Auth0JWTAuthenticator) AuthenticateRequest(c echo.Context) error {
 		EmailVerified:     customClaims.EmailVerified,
 		Picture:           customClaims.Picture,
 		UpdatedAt:         customClaims.UpdatedAt,
-		Permissions:       customClaims.Permissions,
+		Permissions:       map[string][]string{a.config.Audience: customClaims.Permissions},
 	}
 
 	c.Set(auth0JWTAuthenticatorContextKey, &authenticatedUser)

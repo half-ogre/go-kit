@@ -1,6 +1,7 @@
 package echokit
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/url"
@@ -20,6 +21,26 @@ const (
 type D3AuthConfig struct {
 	BaseURL  string
 	Audience string
+}
+
+// D3AuthCustomClaims represents the custom claims in a d3-auth JWT.
+// Permissions are keyed by API audience identifier.
+type D3AuthCustomClaims struct {
+	Name              string              `json:"name"`
+	GivenName         string              `json:"given_name"`
+	FamilyName        string              `json:"family_name"`
+	MiddleName        string              `json:"middle_name"`
+	Nickname          string              `json:"nickname"`
+	PreferredUsername string              `json:"preferred_username"`
+	Email             string              `json:"email"`
+	EmailVerified     bool                `json:"email_verified"`
+	Picture           string              `json:"picture"`
+	UpdatedAt         int64               `json:"updated_at"`
+	Permissions       map[string][]string `json:"permissions"`
+}
+
+func (c D3AuthCustomClaims) Validate(ctx context.Context) error {
+	return nil
 }
 
 type D3AuthJWTAuthenticator struct {
@@ -44,7 +65,7 @@ func NewD3AuthJWTAuthenticator(config D3AuthConfig) (Authenticator, error) {
 		[]string{config.Audience},
 		validator.WithCustomClaims(
 			func() validator.CustomClaims {
-				return &Auth0CustomClaims{}
+				return &D3AuthCustomClaims{}
 			},
 		),
 		validator.WithAllowedClockSkew(time.Minute),
@@ -80,7 +101,7 @@ func (a *D3AuthJWTAuthenticator) AuthenticateRequest(c echo.Context) error {
 		return errors.New("failed to cast to ValidatedClaims")
 	}
 
-	customClaims, ok := validatedClaims.CustomClaims.(*Auth0CustomClaims)
+	customClaims, ok := validatedClaims.CustomClaims.(*D3AuthCustomClaims)
 	if !ok {
 		return errors.New("failed to cast custom claims")
 	}

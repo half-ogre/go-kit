@@ -13,7 +13,7 @@ func TestRequirePermissions(t *testing.T) {
 		e := echo.New()
 		c, rec := NewTestGetRequest(e, "/")
 
-		middleware := RequirePermissions([]string{"thePermission"})
+		middleware := RequirePermissions("theAudience", []string{"thePermission"})
 		handler := middleware(func(c echo.Context) error {
 			return c.String(http.StatusOK, "success")
 		})
@@ -35,7 +35,7 @@ func TestRequirePermissions(t *testing.T) {
 		c, rec := NewTestGetRequest(e, "/")
 		c.Set(authenticatorContextKey, fakeAuthenticator)
 
-		middleware := RequirePermissions([]string{"thePermission"})
+		middleware := RequirePermissions("theAudience", []string{"thePermission"})
 		handler := middleware(func(c echo.Context) error {
 			return c.String(http.StatusOK, "success")
 		})
@@ -64,7 +64,7 @@ func TestRequirePermissions(t *testing.T) {
 
 		c.Set(authenticatorContextKey, fakeAuthenticator)
 
-		middleware := RequirePermissions([]string{"thePermission"})
+		middleware := RequirePermissions("theAudience", []string{"thePermission"})
 		handler := middleware(func(c echo.Context) error {
 			return c.String(http.StatusOK, "success")
 		})
@@ -90,7 +90,7 @@ func TestRequirePermissions(t *testing.T) {
 		c, rec := NewTestGetRequest(e, "/")
 		c.Set(authenticatorContextKey, fakeAuthenticator)
 
-		middleware := RequirePermissions([]string{"thePermission"})
+		middleware := RequirePermissions("theAudience", []string{"thePermission"})
 		handler := middleware(func(c echo.Context) error {
 			return c.String(http.StatusOK, "success")
 		})
@@ -110,7 +110,7 @@ func TestRequirePermissions(t *testing.T) {
 			},
 			GetAuthenticatedUserFake: func(c echo.Context) (*AuthenticatedUser, error) {
 				return &AuthenticatedUser{
-					Permissions: []string{"aPermission"},
+					Permissions: map[string][]string{"theAudience": {"aPermission"}},
 				}, nil
 			},
 			HandleNotAuthenticatedFake: func(c echo.Context) error {
@@ -124,7 +124,7 @@ func TestRequirePermissions(t *testing.T) {
 
 		c.Set(authenticatorContextKey, fakeAuthenticator)
 
-		middleware := RequirePermissions([]string{"thePermission"})
+		middleware := RequirePermissions("theAudience", []string{"thePermission"})
 		handler := middleware(func(c echo.Context) error {
 			return c.String(http.StatusOK, "success")
 		})
@@ -144,7 +144,7 @@ func TestRequirePermissions(t *testing.T) {
 			},
 			GetAuthenticatedUserFake: func(c echo.Context) (*AuthenticatedUser, error) {
 				return &AuthenticatedUser{
-					Permissions: []string{"thePermission1"},
+					Permissions: map[string][]string{"theAudience": {"thePermission1"}},
 				}, nil
 			},
 			HandleNotAuthenticatedFake: func(c echo.Context) error {
@@ -158,7 +158,7 @@ func TestRequirePermissions(t *testing.T) {
 
 		c.Set(authenticatorContextKey, fakeAuthenticator)
 
-		middleware := RequirePermissions([]string{"thePermission1", "thePermission2"})
+		middleware := RequirePermissions("theAudience", []string{"thePermission1", "thePermission2"})
 		handler := middleware(func(c echo.Context) error {
 			return c.String(http.StatusOK, "success")
 		})
@@ -178,7 +178,7 @@ func TestRequirePermissions(t *testing.T) {
 			},
 			GetAuthenticatedUserFake: func(c echo.Context) (*AuthenticatedUser, error) {
 				return &AuthenticatedUser{
-					Permissions: []string{"thePermission"},
+					Permissions: map[string][]string{"theAudience": {"thePermission"}},
 				}, nil
 			},
 		}
@@ -188,7 +188,7 @@ func TestRequirePermissions(t *testing.T) {
 
 		c.Set(authenticatorContextKey, fakeAuthenticator)
 
-		middleware := RequirePermissions([]string{"thePermission"})
+		middleware := RequirePermissions("theAudience", []string{"thePermission"})
 		handler := middleware(func(c echo.Context) error {
 			nextHandlerCalled = true
 			return c.String(http.StatusOK, "success")
@@ -209,7 +209,7 @@ func TestRequirePermissions(t *testing.T) {
 			},
 			GetAuthenticatedUserFake: func(c echo.Context) (*AuthenticatedUser, error) {
 				return &AuthenticatedUser{
-					Permissions: []string{"thePermission1", "thePermission2"},
+					Permissions: map[string][]string{"theAudience": {"thePermission1", "thePermission2"}},
 				}, nil
 			},
 		}
@@ -219,7 +219,7 @@ func TestRequirePermissions(t *testing.T) {
 
 		c.Set(authenticatorContextKey, fakeAuthenticator)
 
-		middleware := RequirePermissions([]string{"thePermission1", "thePermission2"})
+		middleware := RequirePermissions("theAudience", []string{"thePermission1", "thePermission2"})
 		handler := middleware(func(c echo.Context) error {
 			nextHandlerCalled = true
 			return c.String(http.StatusOK, "success")
@@ -240,7 +240,7 @@ func TestRequirePermissions(t *testing.T) {
 			},
 			GetAuthenticatedUserFake: func(c echo.Context) (*AuthenticatedUser, error) {
 				return &AuthenticatedUser{
-					Permissions: []string{"thePermission1", "thePermission2", "aPermission3"},
+					Permissions: map[string][]string{"theAudience": {"thePermission1", "thePermission2", "aPermission3"}},
 				}, nil
 			},
 		}
@@ -250,7 +250,7 @@ func TestRequirePermissions(t *testing.T) {
 
 		c.Set(authenticatorContextKey, fakeAuthenticator)
 
-		middleware := RequirePermissions([]string{"thePermission1", "thePermission2"})
+		middleware := RequirePermissions("theAudience", []string{"thePermission1", "thePermission2"})
 		handler := middleware(func(c echo.Context) error {
 			nextHandlerCalled = true
 			return c.String(http.StatusOK, "success")
@@ -271,7 +271,7 @@ func TestRequirePermissions(t *testing.T) {
 			},
 			GetAuthenticatedUserFake: func(c echo.Context) (*AuthenticatedUser, error) {
 				return &AuthenticatedUser{
-					Permissions: []string{"aPermission"},
+					Permissions: map[string][]string{"theAudience": {"aPermission"}},
 				}, nil
 			},
 			HandleNotAuthenticatedFake: func(c echo.Context) error {
@@ -285,7 +285,7 @@ func TestRequirePermissions(t *testing.T) {
 
 		c.Set(authenticatorContextKey, fakeAuthenticator)
 
-		middleware := RequirePermissions([]string{"thePermission1"}, []string{"thePermission2"}, []string{"thePermission3"})
+		middleware := RequirePermissions("theAudience", []string{"thePermission1"}, []string{"thePermission2"}, []string{"thePermission3"})
 		handler := middleware(func(c echo.Context) error {
 			return c.String(http.StatusOK, "success")
 		})
@@ -305,7 +305,7 @@ func TestRequirePermissions(t *testing.T) {
 			},
 			GetAuthenticatedUserFake: func(c echo.Context) (*AuthenticatedUser, error) {
 				return &AuthenticatedUser{
-					Permissions: []string{"thePermission2"},
+					Permissions: map[string][]string{"theAudience": {"thePermission2"}},
 				}, nil
 			},
 		}
@@ -315,7 +315,7 @@ func TestRequirePermissions(t *testing.T) {
 
 		c.Set(authenticatorContextKey, fakeAuthenticator)
 
-		middleware := RequirePermissions([]string{"thePermission1"}, []string{"thePermission2"}, []string{"thePermission3"})
+		middleware := RequirePermissions("theAudience", []string{"thePermission1"}, []string{"thePermission2"}, []string{"thePermission3"})
 		handler := middleware(func(c echo.Context) error {
 			nextHandlerCalled = true
 			return c.String(http.StatusOK, "success")
@@ -336,7 +336,7 @@ func TestRequirePermissions(t *testing.T) {
 			},
 			GetAuthenticatedUserFake: func(c echo.Context) (*AuthenticatedUser, error) {
 				return &AuthenticatedUser{
-					Permissions: []string{"thePermission3"},
+					Permissions: map[string][]string{"theAudience": {"thePermission3"}},
 				}, nil
 			},
 		}
@@ -346,7 +346,7 @@ func TestRequirePermissions(t *testing.T) {
 
 		c.Set(authenticatorContextKey, fakeAuthenticator)
 
-		middleware := RequirePermissions([]string{"thePermission1"}, []string{"thePermission2"}, []string{"thePermission3"})
+		middleware := RequirePermissions("theAudience", []string{"thePermission1"}, []string{"thePermission2"}, []string{"thePermission3"})
 		handler := middleware(func(c echo.Context) error {
 			nextHandlerCalled = true
 			return c.String(http.StatusOK, "success")
@@ -367,7 +367,7 @@ func TestRequirePermissions(t *testing.T) {
 			},
 			GetAuthenticatedUserFake: func(c echo.Context) (*AuthenticatedUser, error) {
 				return &AuthenticatedUser{
-					Permissions: []string{"thePermission2", "thePermission3"},
+					Permissions: map[string][]string{"theAudience": {"thePermission2", "thePermission3"}},
 				}, nil
 			},
 		}
@@ -377,7 +377,7 @@ func TestRequirePermissions(t *testing.T) {
 
 		c.Set(authenticatorContextKey, fakeAuthenticator)
 
-		middleware := RequirePermissions(
+		middleware := RequirePermissions("theAudience",
 			[]string{"thePermission1"},
 			[]string{"thePermission2", "thePermission3"},
 			[]string{"thePermission4"},
@@ -402,7 +402,7 @@ func TestRequirePermissions(t *testing.T) {
 			},
 			GetAuthenticatedUserFake: func(c echo.Context) (*AuthenticatedUser, error) {
 				return &AuthenticatedUser{
-					Permissions: []string{"thePermission2"},
+					Permissions: map[string][]string{"theAudience": {"thePermission2"}},
 				}, nil
 			},
 			HandleNotAuthenticatedFake: func(c echo.Context) error {
@@ -416,7 +416,7 @@ func TestRequirePermissions(t *testing.T) {
 
 		c.Set(authenticatorContextKey, fakeAuthenticator)
 
-		middleware := RequirePermissions(
+		middleware := RequirePermissions("theAudience",
 			[]string{"thePermission1"},
 			[]string{"thePermission2", "thePermission3"},
 			[]string{"thePermission4"},
@@ -442,7 +442,7 @@ func TestRequirePermission(t *testing.T) {
 			},
 			GetAuthenticatedUserFake: func(c echo.Context) (*AuthenticatedUser, error) {
 				return &AuthenticatedUser{
-					Permissions: []string{"thePermission"},
+					Permissions: map[string][]string{"theAudience": {"thePermission"}},
 				}, nil
 			},
 		}
@@ -452,7 +452,7 @@ func TestRequirePermission(t *testing.T) {
 
 		c.Set(authenticatorContextKey, fakeAuthenticator)
 
-		middleware := RequirePermission("thePermission")
+		middleware := RequirePermission("theAudience", "thePermission")
 		handler := middleware(func(c echo.Context) error {
 			nextHandlerCalled = true
 			return c.String(http.StatusOK, "success")
@@ -473,7 +473,7 @@ func TestRequirePermission(t *testing.T) {
 			},
 			GetAuthenticatedUserFake: func(c echo.Context) (*AuthenticatedUser, error) {
 				return &AuthenticatedUser{
-					Permissions: []string{"thePermission2"},
+					Permissions: map[string][]string{"theAudience": {"thePermission2"}},
 				}, nil
 			},
 		}
@@ -483,7 +483,7 @@ func TestRequirePermission(t *testing.T) {
 
 		c.Set(authenticatorContextKey, fakeAuthenticator)
 
-		middleware := RequirePermission("thePermission1", "thePermission2", "thePermission3")
+		middleware := RequirePermission("theAudience", "thePermission1", "thePermission2", "thePermission3")
 		handler := middleware(func(c echo.Context) error {
 			nextHandlerCalled = true
 			return c.String(http.StatusOK, "success")

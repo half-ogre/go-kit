@@ -21,6 +21,7 @@ const (
 
 type EntraIDJWTAuthenticator struct {
 	tenantID     string
+	audience     string
 	jwtValidator *validator.Validator
 }
 
@@ -72,6 +73,7 @@ func NewEntraIDJWTAuthenticator(tenantID, audience string) (Authenticator, error
 
 	return &EntraIDJWTAuthenticator{
 		tenantID:     tenantID,
+		audience:     audience,
 		jwtValidator: jwtValidator,
 	}, nil
 }
@@ -120,7 +122,7 @@ func (a *EntraIDJWTAuthenticator) AuthenticateRequest(c echo.Context) error {
 		EmailVerified:     false,
 		Picture:           customClaims.Picture,
 		UpdatedAt:         customClaims.UpdatedAt,
-		Permissions:       permissions,
+		Permissions:       map[string][]string{a.audience: permissions},
 	}
 
 	c.Set(entraIDJWTAuthenticatorContextKey, &authenticatedUser)
