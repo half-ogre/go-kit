@@ -23,7 +23,7 @@ type AuthenticatedUser struct {
 	EmailVerified     bool
 	Picture           string
 	UpdatedAt         int64
-	Permissions       []string
+	Permissions       map[string][]string
 }
 
 type Authenticator interface {

@@ -149,7 +149,7 @@ func (a *Auth0Authenticator) GetAuthenticatedUser(c echo.Context) (*Authenticate
 			EmailVerified:     emailVerified,
 			Picture:           picture,
 			UpdatedAt:         updatedAt,
-			Permissions:       permissions,
+			Permissions:       map[string][]string{a.config.Audience: permissions},
 		}, nil
 	}
 }

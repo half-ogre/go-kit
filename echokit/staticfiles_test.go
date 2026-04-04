@@ -539,6 +539,111 @@ func extractFingerprintedPath(html, prefix string) string {
 	return html[start:end]
 }
 
+func TestStaticFilesMiddleware_JSDocTypeImports(t *testing.T) {
+	t.Run("jsdoc_typedef_imports_do_not_create_circular_dependencies", func(t *testing.T) {
+		dir := t.TempDir()
+		os.MkdirAll(filepath.Join(dir, "views"), 0755)
+		os.MkdirAll(filepath.Join(dir, "shared"), 0755)
+
+		// parent.js defines types and imports child.js
+		// child.js has a JSDoc @typedef {import('../views/parent.js').SomeType} — NOT a real import
+		os.WriteFile(filepath.Join(dir, "index.html"), []byte(`<html><body><script type="module" src="/views/parent.js"></script></body></html>`), 0644)
+		os.WriteFile(filepath.Join(dir, "views", "parent.js"), []byte(`import '../shared/child.js';
+export class SomeType {}
+`), 0644)
+		os.WriteFile(filepath.Join(dir, "shared", "child.js"), []byte(`/**
+ * @typedef {import('../views/parent.js').SomeType} SomeType
+ */
+export class ChildComponent {}
+`), 0644)
+
+		var logBuf strings.Builder
+		oldLogger := slog.Default()
+		slog.SetDefault(slog.New(slog.NewTextHandler(&logBuf, &slog.HandlerOptions{Level: slog.LevelWarn})))
+		defer slog.SetDefault(oldLogger)
+
+		m := NewStaticFilesMiddleware(dir, false)
+		defer m.Close()
+		e := echo.New()
+		e.Use(m.Handler())
+
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.NotContains(t, logBuf.String(), "circular dependency", "JSDoc @typedef imports should not cause circular dependency warnings")
+	})
+
+	t.Run("jsdoc_typedef_imports_are_not_rewritten", func(t *testing.T) {
+		dir := t.TempDir()
+		os.MkdirAll(filepath.Join(dir, "views"), 0755)
+		os.MkdirAll(filepath.Join(dir, "shared"), 0755)
+
+		os.WriteFile(filepath.Join(dir, "index.html"), []byte(`<html><body><script type="module" src="/shared/child.js"></script></body></html>`), 0644)
+		os.WriteFile(filepath.Join(dir, "views", "parent.js"), []byte(`export class SomeType {}`), 0644)
+		os.WriteFile(filepath.Join(dir, "shared", "child.js"), []byte(`/**
+ * @typedef {import('../views/parent.js').SomeType} SomeType
+ */
+export class ChildComponent {}
+`), 0644)
+
+		m := NewStaticFilesMiddleware(dir, false)
+		defer m.Close()
+		e := echo.New()
+		e.Use(m.Handler())
+
+		// Build
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+
+		// Get the fingerprinted child.js
+		html := rec.Body.String()
+		childFP := extractFingerprintedPath(html, "child.")
+		assert.NotEmpty(t, childFP)
+
+		req = httptest.NewRequest(http.MethodGet, childFP, nil)
+		rec = httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		// JSDoc typedef import should remain unchanged (not fingerprinted)
+		assert.Contains(t, rec.Body.String(), `{import('../views/parent.js').SomeType}`)
+	})
+
+	t.Run("real_dynamic_imports_are_still_rewritten", func(t *testing.T) {
+		dir := t.TempDir()
+		os.MkdirAll(filepath.Join(dir, "lib"), 0755)
+
+		os.WriteFile(filepath.Join(dir, "index.html"), []byte(`<html><body><script type="module" src="/lib/app.js"></script></body></html>`), 0644)
+		os.WriteFile(filepath.Join(dir, "lib", "lazy.js"), []byte("export const LAZY = 'v1';"), 0644)
+		os.WriteFile(filepath.Join(dir, "lib", "app.js"), []byte(`const m = import('./lazy.js');`), 0644)
+
+		m := NewStaticFilesMiddleware(dir, false)
+		defer m.Close()
+		e := echo.New()
+		e.Use(m.Handler())
+
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+
+		html := rec.Body.String()
+		appFP := extractFingerprintedPath(html, "app.")
+		assert.NotEmpty(t, appFP)
+
+		req = httptest.NewRequest(http.MethodGet, appFP, nil)
+		rec = httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		// Real dynamic import should be rewritten to fingerprinted path
+		assert.NotContains(t, rec.Body.String(), `'./lazy.js'`)
+		assert.Contains(t, rec.Body.String(), "./lazy.")
+	})
+}
+
 func TestStaticFilesMiddleware_CircularDependencyWarning(t *testing.T) {
 	t.Run("logs_warning_for_circular_imports", func(t *testing.T) {
 		dir := t.TempDir()
