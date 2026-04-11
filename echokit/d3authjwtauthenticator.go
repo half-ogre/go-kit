@@ -3,6 +3,7 @@ package echokit
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
@@ -93,7 +94,11 @@ func (a *D3AuthJWTAuthenticator) AuthenticateRequest(c echo.Context) error {
 
 	validateResult, err := a.jwtValidator.ValidateToken(c.Request().Context(), authHeaderParts[1])
 	if err != nil {
-		return err
+		// The user presented a d3-auth JWT, so they are authenticated — but
+		// validation failed (wrong audience, expired, etc.), meaning they are
+		// not authorized for this API. Return 403, not 500.
+		slog.Debug("d3auth_jwt_validation_failed", "error", err.Error())
+		return echo.NewHTTPError(http.StatusForbidden, "You do not have access to this application")
 	}
 
 	validatedClaims, ok := validateResult.(*validator.ValidatedClaims)

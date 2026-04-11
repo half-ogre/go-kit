@@ -52,6 +52,11 @@ func NewAuthenticationMiddleware(authenticator Authenticator, options ...Authent
 
 			err := authenticator.AuthenticateRequest(c)
 			if err != nil {
+				// Preserve echo.HTTPError (e.g., 403 from JWT audience mismatch)
+				var httpErr *echo.HTTPError
+				if errors.As(err, &httpErr) {
+					return httpErr
+				}
 				return kit.WrapError(err, "error authenticating request")
 			}
 
