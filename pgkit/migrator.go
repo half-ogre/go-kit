@@ -23,6 +23,20 @@ type Migration struct {
 	AppliedAt   *time.Time
 }
 
+// MigrationResult reports what happened when a single migration was applied.
+type MigrationResult struct {
+	Filename string
+	Duration time.Duration
+}
+
+// MigratorOption configures the migrator.
+type MigratorOption func(*migrator)
+
+// WithOnApplied sets a callback invoked after each migration is applied.
+func WithOnApplied(fn func(MigrationResult)) MigratorOption {
+	return func(m *migrator) { m.onApplied = fn }
+}
+
 // Migrator is an interface for running database migrations
 type Migrator interface {
 	RunMigrations(db DB, dirPath string) error
@@ -31,7 +45,9 @@ type Migrator interface {
 }
 
 // migrator implements Migrator
-type migrator struct{}
+type migrator struct {
+	onApplied func(MigrationResult)
+}
 
 // parseMigrationVersion extracts the version number from a migration filename
 // Expected format: {number}_{description}.sql
@@ -289,6 +305,7 @@ func (m *migrator) runMigrations(db DB, dirPath string, toVersion int) error {
 			return kit.WrapError(err, "failed to read migration %s", filename)
 		}
 
+		start := time.Now()
 		_, err = db.Exec(context.Background(), string(content))
 		if err != nil {
 			return kit.WrapError(err, "failed to execute migration %s", filename)
@@ -298,6 +315,10 @@ func (m *migrator) runMigrations(db DB, dirPath string, toVersion int) error {
 		_, err = db.Exec(context.Background(), "INSERT INTO pgkit_migrations (filename) VALUES ($1)", filename)
 		if err != nil {
 			return kit.WrapError(err, "failed to record migration %s", filename)
+		}
+
+		if m.onApplied != nil {
+			m.onApplied(MigrationResult{Filename: filename, Duration: time.Since(start)})
 		}
 
 		// Stop if we've reached the target version
@@ -310,6 +331,10 @@ func (m *migrator) runMigrations(db DB, dirPath string, toVersion int) error {
 }
 
 // NewMigrator creates a new Migrator
-func NewMigrator() Migrator {
-	return &migrator{}
+func NewMigrator(opts ...MigratorOption) Migrator {
+	m := &migrator{}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
 }
